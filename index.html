@@ -304,7 +304,7 @@ footer p { margin: 4px 0; }
 .ticker-view { flex: 1; overflow: hidden; scrollbar-width: none; position: relative; mask-image: linear-gradient(90deg, transparent, #000 24px, #000 calc(100% - 24px), transparent); }
 .ticker-view::-webkit-scrollbar { display: none; }
 .ticker-track { display: flex; width: max-content; height: 100%; animation: ticker-move var(--ticker-time, 60s) linear infinite; }
-.ticker:hover .ticker-track, .ticker:focus-within .ticker-track { animation-play-state: paused; }
+@media (hover: hover) { .ticker:hover .ticker-track { animation-play-state: paused; } }
 .tick { display: inline-flex; align-items: center; gap: 7px; padding: 0 18px; height: 100%; background: none; border: 0; border-right: 1px solid var(--line); color: var(--text); font: inherit; cursor: pointer; white-space: nowrap; }
 .tick:hover .tick-name { text-decoration: underline; }
 .tick .ico { width: 20px; height: 20px; margin: 0; }
