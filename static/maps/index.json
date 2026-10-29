@@ -195,6 +195,76 @@
    "src": "zone",
    "name": "Timeless Isle",
    "kb": 123
+  },
+  "15": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Dustwallow Marsh",
+   "kb": 139
+  },
+  "33": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Northern Stranglethorn",
+   "kb": 155
+  },
+  "3711": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Sholazar Basin",
+   "kb": 148
+  },
+  "394": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Grizzly Hills",
+   "kb": 156
+  },
+  "406": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Stonetalon Mountains",
+   "kb": 138
+  },
+  "4": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Blasted Lands",
+   "kb": 138
+  },
+  "5034": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Uldum",
+   "kb": 151
+  },
+  "5805": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Valley of the Four Winds",
+   "kb": 93
+  },
+  "66": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "ZulDrak",
+   "kb": 164
+  },
+  "67": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "The Storm Peaks",
+   "kb": 172
   }
  },
  "instances": {
