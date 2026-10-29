@@ -923,6 +923,76 @@
    "src": "zone",
    "name": "Black Temple",
    "kb": 86
+  },
+  "1176": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "ZulFarrak",
+   "kb": 146
+  },
+  "14288": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Battle for Wintergrasp",
+   "kb": 163
+  },
+  "4100": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "The Culling of Stratholme",
+   "kb": 108
+  },
+  "5449": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "The Battle for Gilneas",
+   "kb": 127
+  },
+  "6214": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Siege of Niuzao Temple",
+   "kb": 126
+  },
+  "6309": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Unga Ingoo",
+   "kb": 102
+  },
+  "6384": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Forlorn Cloister",
+   "kb": 101
+  },
+  "6616": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "A Little Patience",
+   "kb": 92
+  },
+  "6677": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Isle of Thunder",
+   "kb": 129
+  },
+  "6771": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Celestial Tournament",
+   "kb": 123
   }
  },
  "instances": {
@@ -1078,6 +1148,27 @@
    "h": 668,
    "src": "zone",
    "kb": 86
+  },
+  "Zul'Farrak": {
+   "img": "z1176",
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "kb": 146
+  },
+  "The Culling of Stratholme": {
+   "img": "z4100",
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "kb": 108
+  },
+  "Siege of Niuzao Temple": {
+   "img": "z6214",
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "kb": 126
   }
  }
 }
