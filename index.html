@@ -203,6 +203,7 @@ thead th.plain { padding: 10px 12px; }
 .wtt { background: #070b1d; border: 1px solid #4b5a8f; border-radius: 6px; padding: 10px 12px; margin: 6px 0 14px; color: #fff; font-size: .9rem; line-height: 1.4; }
 .wtt .r { display: flex; justify-content: space-between; gap: 16px; }
 .wtt .sell { margin-top: 4px; }
+.wtt .cls { margin-top: 2px; }
 .ico { width: 22px; height: 22px; border-radius: 4px; vertical-align: middle; margin-right: 8px; border: 1px solid var(--line); background: var(--panel-2); object-fit: cover; }
 .ico.lg { width: 34px; height: 34px; margin-right: 10px; }
 .ico-blank { display: inline-block; }
@@ -851,19 +852,42 @@ function ensureTips(game) {
   return tipCache.get(game);
 }
 
-function renderTip(tip) {
+const CLASS_INFO = {
+  1: ['Warrior', '#c69b6d'], 2: ['Paladin', '#f48cba'], 3: ['Hunter', '#aad372'], 4: ['Rogue', '#fff468'],
+  5: ['Priest', '#ffffff'], 6: ['Death Knight', '#c41e3a'], 7: ['Shaman', '#0070dd'], 8: ['Mage', '#3fc7eb'],
+  9: ['Warlock', '#8788ee'], 10: ['Monk', '#00ff98'], 11: ['Druid', '#ff7c0a']
+};
+
+function wearClasses(id) {
+  const info = getInfo(id);
+  if (!info) return null;
+  const ids = ALL_CLASSES.filter(c => wearable(info, c));
+  return ids.length ? ids : null;
+}
+
+function classLine(id) {
+  const ids = wearClasses(id);
+  if (!ids) return '';
+  if (ids.length === ALL_CLASSES.length) return '<div class="cls">Classes: <span>All</span></div>';
+  const names = ids.map(c => CLASS_INFO[c]).sort((a, b) => a[0].localeCompare(b[0]));
+  return `<div class="cls">Classes: ${names.map(([n, c]) => `<span style="color:${c}">${n}</span>`).join(', ')}</div>`;
+}
+
+function renderTip(tip, id) {
   const el = $('dlgTip');
-  if (!tip || !Array.isArray(tip.l) || (!tip.l.length && !tip.s)) {
+  const lines = tip && Array.isArray(tip.l) ? tip.l : [];
+  const cls = classLine(id);
+  if (!lines.length && !(tip && tip.s) && !cls) {
     el.hidden = true;
     return;
   }
   const color = c => (typeof c === 'string' && /^#[0-9a-f]{6}$/i.test(c) ? ` style="color:${c}"` : '');
-  el.innerHTML = tip.l.map(([t, c, r]) => (r
+  el.innerHTML = lines.filter(([t]) => !(cls && /^Classes:/.test(t))).map(([t, c, r]) => (r
     ? `<div class="r"><span${color(c)}>${esc(t)}</span><span>${esc(r)}</span></div>`
-    : `<div${color(c)}>${esc(t)}</div>`)).join('') +
-    (tip.s ? `<div class="sell">Sell Price: ${money(tip.s)}</div>` : '');
+    : `<div${color(c)}>${esc(t)}</div>`)).join('') + cls +
+    (tip && tip.s ? `<div class="sell">Sell Price: ${money(tip.s)}</div>` : '');
   el.hidden = false;
-  $('dlgTitle').style.color = QUALITY_COLOR[tip.q] || '';
+  if (tip) $('dlgTitle').style.color = QUALITY_COLOR[tip.q] || '';
 }
 
 function iconUrl(id) {
@@ -1463,7 +1487,7 @@ function openDetail(id) {
   $('dlgHow').innerHTML = '<p class="dim">Loading</p>';
   const tipGame = state.game;
   ensureTips(tipGame).then(tips => {
-    if (state.openId === id && state.game === tipGame && $('detail').open) renderTip(tips && tips[id]);
+    if (state.openId === id && state.game === tipGame && $('detail').open) renderTip(tips && tips[id], id);
   });
   const dIcon = iconUrl(id);
   $('dlgIcon').hidden = !dIcon;

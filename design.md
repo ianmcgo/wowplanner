@@ -287,3 +287,7 @@ These were built from documentation and forum reports, then tested against a moc
 - Only items with at least 3 listings and an earlier price of at least 1 silver count. Changes under 1% are skipped, and so are rises over 1,000% or drops over 95%: those almost always mean the only cheap listing sold or someone posted one at a silly price. The 24 biggest changes show, up and down mixed, largest first. History covers each server's 300 most listed items, so rarer items cannot appear.
 - The list repeats as often as needed to fill the screen width and scrolls at about 45 pixels a second. It hides when fewer than 3 items qualify.
 - The page heading and subtitle were removed so the ticker and tabs sit at the top.
+
+## Classes line in tooltips
+- Every equippable item's tooltip ends with a "Classes:" line listing who can equip it, each name in its class color, or "Classes: All" when every class can. It uses the same rules as the Wearable by filter: armor type and weapon type by class in MoP, plus any class restriction on the item itself. When Blizzard's tooltip already has its own "Classes:" line, the colored line replaces it so it doesn't show twice.
+- Items that are not worn (trade goods, bags, consumables and so on) get no line. Rules come from `iteminfo.json`, or the catalog for unlisted items, so items with neither show no line.
