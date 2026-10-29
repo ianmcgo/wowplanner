@@ -1133,6 +1133,76 @@
    "src": "zone",
    "name": "Lost City of the Tolvir",
    "kb": 118
+  },
+  "5416": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "The Maelstrom",
+   "kb": 104
+  },
+  "5695": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "AhnQiraj The Fallen Kingdom",
+   "kb": 138
+  },
+  "5723": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Firelands",
+   "kb": 126
+  },
+  "5788": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Well of Eternity",
+   "kb": 117
+  },
+  "5789": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "End Time",
+   "kb": 124
+  },
+  "5790": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Ruby Dragonshrine",
+   "kb": 102
+  },
+  "5792": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Obsidian Dragonshrine",
+   "kb": 113
+  },
+  "5793": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Azure Dragonshrine",
+   "kb": 103
+  },
+  "5794": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Emerald Dragonshrine",
+   "kb": 101
+  },
+  "5795": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Bronze Dragonshrine",
+   "kb": 112
   }
  },
  "instances": {
@@ -1365,6 +1435,27 @@
    "h": 668,
    "src": "zone",
    "kb": 118
+  },
+  "Firelands": {
+   "img": "z5723",
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "kb": 126
+  },
+  "Well of Eternity": {
+   "img": "z5788",
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "kb": 117
+  },
+  "End Time": {
+   "img": "z5789",
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "kb": 124
   }
  }
 }
