@@ -47,6 +47,9 @@ games.json                          list of games and their regions
 {game}/{region}/realms.json         connected realms with their server names
 {game}/{region}/{realmId}/latest.json.gz
 {game}/{region}/{realmId}/history.json.gz
+{game}/{region}/{realmId}/sales.json.gz    estimated sales per item, last 7 days
+{game}/{region}/{realmId}/state.bin.gz     previous listings, used to detect sales
+{game}/icons.json                   item id to icon file name
 {game}/{region}/commodities/...     retail only, region-wide stackable goods
 ```
 
@@ -99,12 +102,34 @@ The tab works out profit in the browser from the selected server's latest prices
 - **Crafted is mostly unavailable.** Checked against the live API: Blizzard's recipe endpoint returns no crafted item and no reagent list for current-expansion recipes (only a name and optional-reagent slots). Only a handful of older recipes have reagents, so the tab shows a message instead of guessing costs. Getting costs would need another data source for recipe reagents.
 - **Classic and Classic Era:** the profession and journal endpoints return 404, so Classic has Gathered and Other only, plus Wowhead links.
 
+## Games and region
+- The collector now covers **Classic (Progression)** and **Classic Era** only, in the **US** region. Retail was removed at your request. Games or regions that are not in the current settings are deleted from the data on the next run.
+- The page hides the region selector and always uses US.
+- To bring Retail back, add `retail` to the `GAMES` line in `collect.yml`. Retail also brings back dungeon and raid drop data, which only Retail's Journal API provides.
+
+## Item icons
+- For each item the collector calls Blizzard's media endpoint (`/data/wow/media/item/{id}`) and keeps the icon file name in `icons.json`. Up to `ICON_LOOKUPS` items per run, most listed first.
+- `icons.json` is `{ base, icons: { itemId: name } }`. The image address is `base + name + ".jpg"`, served from Blizzard's public render site. Values that do not share the base are stored as full addresses.
+- The page shows icons in the listings table, the item popup, profit cards and the fastest selling table. Missing icons show an empty square.
+
+## Fastest selling tab
+- Each run the collector saves every listing (auction id, item, quantity, time left) for each server in `state.bin.gz`, a compact binary file.
+- On the next run it compares the new listings with the saved ones:
+  - A listing that disappeared while it had **Long** or **Very long** time left (2 hours or more) counts as sold. Short and Medium listings that disappear are treated as expired and ignored.
+  - A listing that is still there with a smaller quantity counts the difference as sold.
+- Comparisons only count when the runs are 20 minutes to 3 hours apart (`SALES_MIN_GAP`, 3 hour maximum), so a quick extra run or a long outage does not skew the numbers.
+- `sales.json.gz` is `{ last, obs: [[time, seconds covered]], h: { itemId: [[time, quantity, listings]] } }`, trimmed to `SALES_DAYS` (7).
+- The page adds up sales in the chosen window (24 hours or 7 days), divides by the time actually observed, and scales to a day. It shows the top 20 by units sold or by gold traded (units times today's lowest price).
+- It waits until at least one hour of tracking exists before showing anything.
+- Cancelled auctions look the same as sales, so this is a ranking, not exact sales.
+- The Top 10 profits cards also show "Sells about N a day" when sales data exists.
+
 ## Collector settings (environment variables)
 
 | Variable | Default | Meaning |
 |---|---|---|
 | `BLIZZARD_CLIENT_ID`, `BLIZZARD_CLIENT_SECRET` | none | Required |
-| `GAMES` | `retail,classic,classic1x` | Which games to collect |
+| `GAMES` | `classic,classic1x` | Which games to collect (`retail` also works). Games not listed are removed from the data. |
 | `REGIONS` | `us` | Which regions to collect (`eu`, `kr` and `tw` also work). Regions not listed are removed from the data. |
 | `OUT_DIR` | `data` | Where files are written |
 | `MAX_REALMS` | 0 (all) | Limit realms per region, useful for testing |
@@ -114,6 +139,9 @@ The tab works out profit in the browser from the selected server's latest prices
 | `RECIPE_TIERS` | 3 | Newest skill tiers collected per profession |
 | `RECIPE_FETCH_CAP` | 6000 | New recipes fetched per run |
 | `SOURCES_REFRESH_HOURS` | 72 | How often recipes and drops are refreshed |
+| `ICON_LOOKUPS` | 8000 | Item icons fetched per run |
+| `SALES_DAYS` | 7 | Days of sales history kept |
+| `SALES_MIN_GAP` | 1200 | Minimum seconds between runs for a sales comparison |
 
 Item names and categories fill in over the first couple of runs (up to `ITEM_LOOKUPS` items per run, most listed first). Until an item name is known the page shows `Item #id`.
 
@@ -145,8 +173,6 @@ These were built from documentation and forum reports, then tested against a moc
 
 ## Not yet done
 - Same item price across other servers.
-- Item icons.
-- Real sales data, so profit ranking does not account for how fast items sell.
 - Specific farming spots and quest rewards. These are only available as Wowhead links.
 - A Forever entry (see above).
 - An addon import path for games without API endpoints.

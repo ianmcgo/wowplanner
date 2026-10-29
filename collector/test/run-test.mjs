@@ -35,6 +35,7 @@ async function run(extra = {}) {
     REGIONS: 'us',
     GAMES: 'retail,classic,classic1x',
     CONCURRENCY: '4',
+    SALES_MIN_GAP: '0',
     ...extra
   });
   if (res.status !== 0) {
@@ -98,14 +99,37 @@ try {
   const k = Object.keys(h1.h)[0];
   assert.equal(h1.h[k].length, 1);
 
+  const icons = JSON.parse(readFileSync(path.join(out, 'retail', 'icons.json'), 'utf8'));
+  assert.equal(icons.base, 'https://render.worldofwarcraft.com/us/icons/56/');
+  assert.equal(icons.icons['100'], 'inv_test_100');
+  assert.equal(icons.icons['139'], null);
+
+  const s1 = readGz(path.join(out, 'retail', 'us', '11', 'sales.json.gz'));
+  assert.equal(s1.obs.length, 0);
+  assert.ok(existsSync(path.join(out, 'retail', 'us', '11', 'state.bin.gz')));
+
+  await new Promise(r => setTimeout(r, 1100));
   const second = await run({ GAMES: 'retail', MAX_REALMS: '1' });
   assert.ok(second.includes('sources are fresh'));
+
+  const s2 = readGz(path.join(out, 'retail', 'us', '11', 'sales.json.gz'));
+  assert.equal(s2.obs.length, 1);
+  const soldItems = Object.keys(s2.h);
+  assert.ok(soldItems.length > 5);
+  const totalListings = Object.values(s2.h).reduce((s, pts) => s + pts[0][2], 0);
+  assert.ok(totalListings > 10 && totalListings <= 80);
+
+  const c2 = readGz(path.join(out, 'retail', 'us', 'commodities', 'sales.json.gz'));
+  assert.equal(c2.obs.length, 1);
+  const partial = Object.values(c2.h).reduce((s, pts) => s + pts[0][1], 0);
+  assert.ok(partial > 0);
   const h2 = readGz(path.join(out, 'retail', 'us', '11', 'history.json.gz'));
   assert.equal(h2.h[k].length, 2);
 
   const games2 = JSON.parse(readFileSync(path.join(out, 'games.json'), 'utf8'));
-  assert.equal(games2.games.length, 3);
-  assert.ok(existsSync(path.join(out, 'classic1x', 'us', 'realms.json')));
+  assert.deepEqual(games2.games.map(g => g.id), ['retail']);
+  assert.ok(!existsSync(path.join(out, 'classic1x')));
+  assert.ok(!existsSync(path.join(out, 'classic')));
 
   const bad = await exec({ BLIZZARD_CLIENT_ID: '', BLIZZARD_CLIENT_SECRET: '', OUT_DIR: out });
   assert.notEqual(bad.status, 0);

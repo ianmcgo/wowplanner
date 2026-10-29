@@ -8,15 +8,20 @@ function rng(seed) {
   };
 }
 
+let round = 0;
+
 function makeAuctions(seed, count, mode) {
   const r = rng(seed);
   const out = [];
   const times = ['SHORT', 'MEDIUM', 'LONG', 'VERY_LONG'];
   for (let n = 0; n < count; n++) {
     const id = 100 + Math.floor(r() * 40);
-    const q = mode === 'retail' ? 1 : 1 + Math.floor(r() * 20);
+    let q = mode === 'retail' ? 1 : 1 + Math.floor(r() * 20);
     const price = Math.floor(1000 + r() * 500000);
-    const a = { id: n, item: { id }, quantity: q, time_left: times[Math.floor(r() * 4)] };
+    const time = times[Math.floor(r() * 4)];
+    if (round >= 2 && n % 5 === 0) continue;
+    if (round >= 2 && mode === 'commodity' && n % 3 === 0 && q > 1) q = Math.floor(q / 2);
+    const a = { id: 1000000 + n, item: { id }, quantity: q, time_left: time };
     if (mode === 'commodity') a.unit_price = price;
     else a.buyout = price * q;
     out.push(a);
@@ -26,6 +31,7 @@ function makeAuctions(seed, count, mode) {
 
 export function startMock(port) {
   const server = http.createServer((req, res) => {
+    if (req.url.startsWith('/token')) round++;
     const url = new URL(req.url, `http://localhost:${port}`);
     const p = url.pathname;
     const ns = url.searchParams.get('namespace') || '';
@@ -68,6 +74,11 @@ export function startMock(port) {
         item_class: kind ? { id: 7, name: 'Trade Goods' } : { id: 2, name: 'Weapon' },
         item_subclass: { id: 0, name: kind || 'Sword' }
       });
+    }
+    m = /^\/data\/wow\/media\/item\/(\d+)$/.exec(p);
+    if (m) {
+      if (m[1] === '139') return json({}, 404);
+      return json({ assets: [{ key: 'icon', value: `https://render.worldofwarcraft.com/us/icons/56/inv_test_${m[1]}.jpg` }] });
     }
     if (p === '/data/wow/profession/index') {
       if (classic) return json({}, 404);

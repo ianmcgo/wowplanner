@@ -9,7 +9,7 @@ const API_BASE = env.API_BASE || null;
 const OAUTH_URL = env.OAUTH_URL || 'https://oauth.battle.net/token';
 const OUT_DIR = env.OUT_DIR || 'data';
 const REGIONS = (env.REGIONS || 'us').split(',').map(s => s.trim()).filter(Boolean);
-const GAME_IDS = (env.GAMES || 'retail,classic,classic1x').split(',').map(s => s.trim()).filter(Boolean);
+const GAME_IDS = (env.GAMES || 'classic,classic1x').split(',').map(s => s.trim()).filter(Boolean);
 const MAX_REALMS = Number(env.MAX_REALMS || 0);
 const CONCURRENCY = Number(env.CONCURRENCY || 8);
 const ITEM_LOOKUPS = Number(env.ITEM_LOOKUPS || 8000);
@@ -21,6 +21,12 @@ const SOURCES_REFRESH_HOURS = Number(env.SOURCES_REFRESH_HOURS || 72);
 const SOURCES_VERSION = 2;
 const KNOWN_REGIONS = ['us', 'eu', 'kr', 'tw'];
 const TIME = { SHORT: 'S', MEDIUM: 'M', LONG: 'L', VERY_LONG: 'V' };
+const ICON_LOOKUPS = Number(env.ICON_LOOKUPS || 8000);
+const SALES_DAYS = Number(env.SALES_DAYS || 7);
+const SALES_MAX_GAP = 3 * 3600;
+const SALES_MIN_GAP = Number(env.SALES_MIN_GAP ?? 1200);
+const TIME_CODE = { SHORT: 1, MEDIUM: 2, LONG: 3, VERY_LONG: 4 };
+const HOUSE_CODE = { alliance: 1, horde: 2, blackwater: 3 };
 
 const GAMES = {
   retail: { label: 'Retail', dynamic: 'dynamic-{r}', static: 'static-{r}', commodities: true, houses: false, journal: true },
@@ -228,13 +234,129 @@ async function storeSnapshot(game, region, entry, auctions, seen, now) {
   });
   const prev = await readGz(path.join(dir, 'history.json.gz'));
   await writeGz(path.join(dir, 'history.json.gz'), updateHistory(prev, items, now));
+  await updateSales(dir, auctions, now);
+}
+
+function listingRows(auctions) {
+  const rows = [];
+  for (const a of auctions) {
+    if (!a.id || !a.item || !a.item.id) continue;
+    const key = a.id * 4 + (HOUSE_CODE[a.house] || 0);
+    rows.push([key, a.item.id, a.quantity || 1, TIME_CODE[a.time_left] || 0]);
+  }
+  rows.sort((x, y) => x[0] - y[0]);
+  return rows;
+}
+
+function encodeRows(rows) {
+  const out = new Uint8Array(rows.length * 20 + 16);
+  let i = 0;
+  const put = n => {
+    while (n >= 128) {
+      out[i++] = (n % 128) + 128;
+      n = Math.floor(n / 128);
+    }
+    out[i++] = n;
+  };
+  let last = 0;
+  for (const [key, item, qty, tc] of rows) {
+    put(key - last);
+    last = key;
+    put(item);
+    put(qty);
+    out[i++] = tc;
+  }
+  return Buffer.from(out.buffer, 0, i);
+}
+
+function decodeRows(buf) {
+  const map = new Map();
+  let i = 0;
+  let last = 0;
+  const get = () => {
+    let n = 0;
+    let mul = 1;
+    let b;
+    do {
+      b = buf[i++];
+      n += (b % 128) * mul;
+      mul *= 128;
+    } while (b >= 128);
+    return n;
+  };
+  while (i < buf.length) {
+    const key = last + get();
+    last = key;
+    const item = get();
+    const qty = get();
+    const tc = buf[i++];
+    map.set(key, [item, qty, tc]);
+  }
+  return map;
+}
+
+function diffSales(prevMap, rows) {
+  const cur = new Map();
+  for (const [key, item, qty] of rows) cur.set(key, [item, qty]);
+  const sold = new Map();
+  const add = (item, qty, listings) => {
+    const s = sold.get(item) || [0, 0];
+    s[0] += qty;
+    s[1] += listings;
+    sold.set(item, s);
+  };
+  for (const [key, [item, qty, tc]] of prevMap) {
+    const c = cur.get(key);
+    if (!c) {
+      if (tc >= 3) add(item, qty, 1);
+    } else if (c[1] < qty) {
+      add(item, qty - c[1], 0);
+    }
+  }
+  return sold;
+}
+
+async function updateSales(dir, auctions, now) {
+  const stateFile = path.join(dir, 'state.bin.gz');
+  const salesFile = path.join(dir, 'sales.json.gz');
+  const rows = listingRows(auctions);
+  const prev = (await readGz(salesFile)) || { last: 0, obs: [], h: {} };
+  let prevMap = null;
+  const gap = now - (prev.last || 0);
+  if (prev.last && gap > 0 && gap >= SALES_MIN_GAP && gap <= SALES_MAX_GAP) {
+    try {
+      prevMap = decodeRows(gunzipSync(await readFile(stateFile)));
+    } catch {
+      prevMap = null;
+    }
+  }
+  const cutoff = now - SALES_DAYS * DAY;
+  const h = {};
+  for (const [k, pts] of Object.entries(prev.h || {})) {
+    const kept = pts.filter(p => p[0] > cutoff);
+    if (kept.length) h[k] = kept;
+  }
+  const obs = (prev.obs || []).filter(o => o[0] > cutoff);
+  if (prevMap) {
+    const sold = diffSales(prevMap, rows);
+    for (const [item, [qty, listings]] of sold) {
+      (h[item] || (h[item] = [])).push([now, qty, listings]);
+    }
+    obs.push([now, gap]);
+  }
+  await mkdir(dir, { recursive: true });
+  await writeFile(stateFile, gzipSync(encodeRows(rows), { level: 6 }));
+  await writeGz(salesFile, { last: now, obs, h });
 }
 
 async function loadMeta(game) {
   const dir = path.join(OUT_DIR, game.id);
+  const icons = (await readJson(path.join(dir, 'icons.json'))) || {};
   return {
     names: (await readJson(path.join(dir, 'items.json'))) || {},
-    cats: (await readJson(path.join(dir, 'cats.json'))) || {}
+    cats: (await readJson(path.join(dir, 'cats.json'))) || {},
+    iconBase: icons.base || null,
+    icons: icons.icons || {}
   };
 }
 
@@ -242,6 +364,36 @@ async function saveMeta(game, meta) {
   const dir = path.join(OUT_DIR, game.id);
   await writeJson(path.join(dir, 'items.json'), meta.names);
   await writeJson(path.join(dir, 'cats.json'), meta.cats);
+  await writeJson(path.join(dir, 'icons.json'), { base: meta.iconBase, icons: meta.icons });
+}
+
+function storeIcon(meta, id, url) {
+  if (!url) {
+    meta.icons[id] = null;
+    return;
+  }
+  const m = /^(.*\/)([^/]+)\.jpg$/.exec(url);
+  if (m && !meta.iconBase) meta.iconBase = m[1];
+  meta.icons[id] = m && m[1] === meta.iconBase ? m[2] : url;
+}
+
+async function resolveIcons(game, region, base, seen, meta) {
+  const ns = game.static.replace('{r}', region);
+  const missing = [...seen.entries()]
+    .filter(([id]) => !(id in meta.icons))
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, ICON_LOOKUPS)
+    .map(([id]) => id);
+  await pool(missing, CONCURRENCY, async id => {
+    try {
+      const media = await getJson(`${base}/data/wow/media/item/${id}?namespace=${ns}`);
+      const asset = media && Array.isArray(media.assets) ? media.assets.find(a => a.key === 'icon') : null;
+      storeIcon(meta, id, asset ? asset.value : null);
+    } catch (err) {
+      log('icon lookup failed', id, err.message);
+    }
+  });
+  log(game.id, region, 'icons looked up:', missing.length);
 }
 
 function categoryOf(item) {
@@ -456,6 +608,7 @@ async function collectRegion(game, region, now, meta) {
     realms
   });
   await resolveItemNames(game, region, base, seen, meta);
+  await resolveIcons(game, region, base, seen, meta);
   log(game.id, region, 'stored realms:', realms.length);
   return true;
 }
@@ -496,6 +649,12 @@ async function main() {
     }
   }
 
+  for (const id of [...table.keys()]) {
+    if (!GAME_IDS.includes(id)) {
+      table.delete(id);
+      await rm(path.join(OUT_DIR, id), { recursive: true, force: true });
+    }
+  }
   for (const g of table.values()) {
     for (const region of KNOWN_REGIONS) {
       if (!REGIONS.includes(region)) {
