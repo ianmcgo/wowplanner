@@ -993,6 +993,76 @@
    "src": "zone",
    "name": "Celestial Tournament",
    "kb": 123
+  },
+  "15306": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Battle for Tol Barad",
+   "kb": 129
+  },
+  "1977": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "ZulGurub",
+   "kb": 137
+  },
+  "2366": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "The Black Morass",
+   "kb": 118
+  },
+  "2367": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Old Hillsbrad Foothills",
+   "kb": 115
+  },
+  "2557": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Dire Maul",
+   "kb": 100
+  },
+  "3277": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Warsong Gulch",
+   "kb": 85
+  },
+  "3358": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Arathi Basin",
+   "kb": 126
+  },
+  "3429": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Ruins of AhnQiraj",
+   "kb": 138
+  },
+  "3606": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Hyjal Summit",
+   "kb": 134
+  },
+  "3805": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "ZulAman",
+   "kb": 131
   }
  },
  "instances": {
@@ -1169,6 +1239,48 @@
    "h": 668,
    "src": "zone",
    "kb": 126
+  },
+  "The Black Morass": {
+   "img": "z2366",
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "kb": 118
+  },
+  "Old Hillsbrad Foothills": {
+   "img": "z2367",
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "kb": 115
+  },
+  "Dire Maul": {
+   "img": "z2557",
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "kb": 100
+  },
+  "Ruins of Ahn'Qiraj": {
+   "img": "z3429",
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "kb": 138
+  },
+  "Hyjal Summit": {
+   "img": "z3606",
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "kb": 134
+  },
+  "Zul'Aman": {
+   "img": "z3805",
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "kb": 131
   }
  }
 }
