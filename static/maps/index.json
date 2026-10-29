@@ -664,6 +664,76 @@
    "src": "zone",
    "name": "Sunstrider Isle",
    "kb": 127
+  },
+  "1497": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Undercity",
+   "kb": 109
+  },
+  "1537": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Ironforge",
+   "kb": 125
+  },
+  "1638": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Thunder Bluff",
+   "kb": 121
+  },
+  "1657": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Darnassus",
+   "kb": 126
+  },
+  "4416": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Gundrak",
+   "kb": 107
+  },
+  "5095": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Tol Barad",
+   "kb": 129
+  },
+  "5733": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Molten Front",
+   "kb": 120
+  },
+  "6006": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "The Veiled Stair",
+   "kb": 90
+  },
+  "6176": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Coldridge Valley",
+   "kb": 139
+  },
+  "6452": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Camp Narache",
+   "kb": 118
   }
  },
  "instances": {
@@ -756,6 +826,13 @@
    "w": 1000,
    "h": 949,
    "kb": 18
+  },
+  "Gundrak": {
+   "img": "z4416",
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "kb": 107
   }
  }
 }
