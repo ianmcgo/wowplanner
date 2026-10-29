@@ -1,0 +1,13 @@
+{
+  "name": "wow-auction-house",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "collect": "node collector/collect.mjs",
+    "test": "node collector/test/run-test.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

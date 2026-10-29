@@ -1,0 +1,95 @@
+import { spawn } from 'node:child_process';
+import { readFileSync, rmSync, existsSync } from 'node:fs';
+import { gunzipSync } from 'node:zlib';
+import assert from 'node:assert/strict';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { startMock } from './mock-server.mjs';
+
+const here = path.dirname(fileURLToPath(import.meta.url));
+const collector = path.join(here, '..', 'collect.mjs');
+const out = path.join(here, 'out');
+const port = 4545;
+
+rmSync(out, { recursive: true, force: true });
+const server = await startMock(port);
+
+function exec(env) {
+  return new Promise(resolve => {
+    const child = spawn(process.execPath, [collector], { env: { ...process.env, ...env } });
+    let stdout = '';
+    let stderr = '';
+    child.stdout.on('data', d => (stdout += d));
+    child.stderr.on('data', d => (stderr += d));
+    child.on('close', status => resolve({ status, stdout, stderr }));
+  });
+}
+
+async function run(extra = {}) {
+  const res = await exec({
+    BLIZZARD_CLIENT_ID: 'id',
+    BLIZZARD_CLIENT_SECRET: 'secret',
+    API_BASE: `http://localhost:${port}`,
+    OAUTH_URL: `http://localhost:${port}/token`,
+    OUT_DIR: out,
+    REGIONS: 'us',
+    GAMES: 'retail,classic,classic1x',
+    CONCURRENCY: '4',
+    ...extra
+  });
+  if (res.status !== 0) {
+    console.error(res.stdout, res.stderr);
+    throw new Error('collector exited with ' + res.status);
+  }
+  return res.stdout;
+}
+
+const readGz = f => JSON.parse(gunzipSync(readFileSync(f)).toString());
+
+try {
+  await run();
+  const games =JSON.parse(readFileSync(path.join(out, 'games.json'), 'utf8'));
+  assert.deepEqual(games.games.map(g => g.id).sort(), ['classic', 'classic1x', 'retail']);
+  assert.deepEqual(games.games.find(g => g.id === 'retail').regions, ['us']);
+
+  const realms = JSON.parse(readFileSync(path.join(out, 'retail', 'us', 'realms.json'), 'utf8'));
+  assert.equal(realms.realms[0].id, 'commodities');
+  assert.equal(realms.realms.length, 4);
+  assert.equal(realms.realms[1].names.length, 2);
+
+  const latest = readGz(path.join(out, 'retail', 'us', '11', 'latest.json.gz'));
+  assert.ok(latest.items.length > 10);
+  const item = latest.items[0];
+  assert.ok(item.q >= item.n && item.m > 0 && item.l.length >= 1 && item.l.length <= 5);
+  for (let i = 1; i < item.l.length; i++) assert.ok(item.l[i][1] >= item.l[i - 1][1]);
+
+  const classicLatest = readGz(path.join(out, 'classic', 'us', '12', 'latest.json.gz'));
+  const houses = new Set(classicLatest.items.flatMap(e => e.l.map(l => l[3])));
+  assert.ok(houses.has('alliance') && houses.has('horde'));
+
+  const commodities = readGz(path.join(out, 'retail', 'us', 'commodities', 'latest.json.gz'));
+  assert.ok(commodities.items.length > 10);
+
+  const names = JSON.parse(readFileSync(path.join(out, 'retail', 'items.json'), 'utf8'));
+  assert.equal(names['100'], 'Test Item 100');
+  assert.equal(names['139'], null);
+
+  const h1 = readGz(path.join(out, 'retail', 'us', '11', 'history.json.gz'));
+  const k = Object.keys(h1.h)[0];
+  assert.equal(h1.h[k].length, 1);
+
+  await run({ GAMES: 'retail', MAX_REALMS: '1' });
+  const h2 = readGz(path.join(out, 'retail', 'us', '11', 'history.json.gz'));
+  assert.equal(h2.h[k].length, 2);
+
+  const games2 = JSON.parse(readFileSync(path.join(out, 'games.json'), 'utf8'));
+  assert.equal(games2.games.length, 3);
+  assert.ok(existsSync(path.join(out, 'classic1x', 'us', 'realms.json')));
+
+  const bad = await exec({ BLIZZARD_CLIENT_ID: '', BLIZZARD_CLIENT_SECRET: '', OUT_DIR: out });
+  assert.notEqual(bad.status, 0);
+
+  console.log('ALL CHECKS PASSED');
+} finally {
+  server.close();
+}

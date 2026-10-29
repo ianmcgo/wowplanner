@@ -1,0 +1,666 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Auction House Viewer</title>
+<style>
+:root {
+  --bg: #12141a;
+  --panel: #1a1d26;
+  --panel-2: #222633;
+  --line: #2d3242;
+  --text: #e8e9ee;
+  --dim: #9096a8;
+  --accent: #e0b04a;
+  --accent-2: #5ec2b7;
+  --danger: #ef7a7a;
+  --gold: #f1c84b;
+  --silver: #c4cad6;
+  --copper: #d68a55;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { background: var(--bg); }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+.wrap { width: 100%; max-width: 1100px; margin: 0 auto; padding: 0 16px; }
+header { padding: 22px 0 8px; }
+h1 { margin: 0; font-size: 1.55rem; letter-spacing: .01em; }
+h1 span { color: var(--accent); }
+.sub { color: var(--dim); margin: 4px 0 0; font-size: .92rem; }
+.controls {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 12px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 14px;
+  margin: 14px 0;
+}
+.field { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.field.wide { grid-column: span 2; }
+label { font-size: .78rem; color: var(--dim); text-transform: uppercase; letter-spacing: .06em; }
+select, input[type="text"], input[type="number"], input[type="search"] {
+  width: 100%;
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 9px 10px;
+  font: inherit;
+  min-width: 0;
+}
+select:focus, input:focus, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.realm-row { display: flex; flex-direction: column; gap: 6px; }
+.status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--dim);
+  font-size: .9rem;
+  margin: 0 0 10px;
+}
+.status .err { color: var(--danger); }
+button {
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 7px 12px;
+  font: inherit;
+  cursor: pointer;
+}
+button:hover { border-color: var(--accent); }
+button:disabled { opacity: .45; cursor: default; border-color: var(--line); }
+.table-wrap {
+  overflow-x: auto;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+table { width: 100%; border-collapse: collapse; min-width: 520px; }
+th, td { padding: 9px 12px; text-align: right; white-space: nowrap; }
+th:first-child, td:first-child { text-align: left; white-space: normal; }
+thead th {
+  position: sticky;
+  top: 0;
+  background: var(--panel-2);
+  color: var(--dim);
+  font-size: .78rem;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  font-weight: 600;
+  border-bottom: 1px solid var(--line);
+  padding: 0;
+}
+thead th button {
+  all: unset;
+  display: block;
+  width: 100%;
+  padding: 10px 12px;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+thead th button:hover { color: var(--text); }
+thead th button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+thead th[aria-sort="ascending"] button::after { content: " \25B2"; color: var(--accent); }
+thead th[aria-sort="descending"] button::after { content: " \25BC"; color: var(--accent); }
+tbody tr { border-bottom: 1px solid var(--line); cursor: pointer; }
+tbody tr:last-child { border-bottom: 0; }
+tbody tr:hover, tbody tr:focus-visible { background: var(--panel-2); outline: none; }
+.empty { padding: 28px; text-align: center; color: var(--dim); }
+.dim { color: var(--dim); }
+.g, .s, .c { margin-left: 6px; font-variant-numeric: tabular-nums; }
+.g { color: var(--gold); }
+.s { color: var(--silver); }
+.c { color: var(--copper); }
+.g::after { content: "g"; font-size: .8em; }
+.s::after { content: "s"; font-size: .8em; }
+.c::after { content: "c"; font-size: .8em; }
+.pager { display: flex; justify-content: center; align-items: center; gap: 14px; margin: 14px 0; color: var(--dim); }
+dialog {
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 0;
+  width: min(680px, calc(100vw - 24px));
+  max-height: calc(100vh - 24px);
+}
+dialog::backdrop { background: rgba(0, 0, 0, .65); }
+.dlg-head { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; padding: 16px 18px 8px; }
+.dlg-head h2 { margin: 0; font-size: 1.2rem; }
+.dlg-head a { color: var(--accent-2); font-size: .88rem; }
+.dlg-body { padding: 0 18px 18px; overflow: auto; max-height: calc(100vh - 110px); }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin: 8px 0 14px; }
+.stat { background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; padding: 9px 11px; }
+.stat b { display: block; font-size: .72rem; color: var(--dim); text-transform: uppercase; letter-spacing: .06em; font-weight: 600; }
+h3 { font-size: .85rem; color: var(--dim); text-transform: uppercase; letter-spacing: .06em; margin: 14px 0 6px; }
+.mini { width: 100%; border-collapse: collapse; min-width: 0; }
+.mini th, .mini td { padding: 6px 8px; font-size: .92rem; background: none; position: static; }
+.mini thead th { padding: 6px 8px; }
+.mini tr { cursor: default; }
+.mini.nofaction th:nth-child(5), .mini.nofaction td:nth-child(5) { display: none; }
+canvas { width: 100%; height: 220px; display: block; background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; }
+.tip { min-height: 1.4em; color: var(--dim); font-size: .88rem; margin-top: 6px; }
+footer { margin-top: auto; padding: 24px 0 28px; color: var(--dim); font-size: .88rem; text-align: center; }
+footer a { color: var(--accent-2); }
+footer p { margin: 4px 0; }
+@media (max-width: 640px) {
+  .field.wide { grid-column: span 1; }
+  .hide-sm { display: none; }
+  th, td { padding: 9px 8px; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Auction House <span>Viewer</span></h1>
+    <p class="sub">Current listings by game and server, refreshed about once an hour.</p>
+  </header>
+
+  <section class="controls" aria-label="Choose game and server">
+    <div class="field">
+      <label for="game">Game</label>
+      <select id="game"></select>
+    </div>
+    <div class="field">
+      <label for="region">Region</label>
+      <select id="region"></select>
+    </div>
+    <div class="field wide realm-row">
+      <label for="realm">Server</label>
+      <input type="search" id="realmFilter" placeholder="Filter servers by name" aria-label="Filter servers">
+      <select id="realm"></select>
+    </div>
+    <div class="field">
+      <label for="search">Item name</label>
+      <input type="search" id="search" placeholder="Search items">
+    </div>
+    <div class="field">
+      <label for="minPrice">Min price (gold)</label>
+      <input type="number" id="minPrice" min="0" step="any" inputmode="decimal">
+    </div>
+    <div class="field">
+      <label for="maxPrice">Max price (gold)</label>
+      <input type="number" id="maxPrice" min="0" step="any" inputmode="decimal">
+    </div>
+  </section>
+
+  <div class="status">
+    <span id="status">Loading</span>
+    <button id="reload" type="button">Reload</button>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th data-key="name" aria-sort="none"><button type="button">Item</button></th>
+          <th data-key="q" aria-sort="descending"><button type="button">Quantity</button></th>
+          <th data-key="n" class="hide-sm" aria-sort="none"><button type="button">Listings</button></th>
+          <th data-key="m" aria-sort="none"><button type="button">Lowest price</button></th>
+        </tr>
+      </thead>
+      <tbody id="rows"></tbody>
+    </table>
+    <div id="empty" class="empty" hidden></div>
+  </div>
+
+  <div class="pager">
+    <button id="prev" type="button">Previous</button>
+    <span id="pageInfo"></span>
+    <button id="next" type="button">Next</button>
+  </div>
+</div>
+
+<dialog id="detail" aria-labelledby="dlgTitle">
+  <div class="dlg-head">
+    <div>
+      <h2 id="dlgTitle"></h2>
+      <a id="dlgLink" target="_blank" rel="noopener">View on Wowhead</a>
+    </div>
+    <button id="dlgClose" type="button">Close</button>
+  </div>
+  <div class="dlg-body">
+    <div class="stats" id="dlgStats"></div>
+    <h3>Cheapest listings</h3>
+    <table class="mini" id="listingsTable">
+      <thead><tr><th>Qty</th><th>Each</th><th>Stack total</th><th>Time left</th><th>Faction</th></tr></thead>
+      <tbody id="dlgListings"></tbody>
+    </table>
+    <h3>Lowest price history</h3>
+    <canvas id="chart" aria-label="Price history chart"></canvas>
+    <div class="tip" id="chartTip"></div>
+  </div>
+</dialog>
+
+<footer>
+  <div class="wrap">
+    <p>Created by Ian McGonigal &middot; <a href="https://ianmcgo.github.io/website/" target="_blank" rel="noopener">Website</a> &middot; <a href="https://www.patreon.com/cw/ianmcg" target="_blank" rel="noopener">Patreon</a></p>
+    <p>Fan-made tool, not affiliated with Blizzard Entertainment. Data comes from the Battle.net Game Data API.</p>
+  </div>
+</footer>
+
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch {} }
+};
+const PAGE_SIZE = 100;
+const TIME_LABEL = { S: 'Short (under 30m)', M: 'Medium (30m to 2h)', L: 'Long (2h to 12h)', V: 'Very long (12h to 48h)' };
+
+function dataBase() {
+  const custom = new URLSearchParams(location.search).get('data');
+  if (custom) return custom.replace(/\/?$/, '/');
+  const host = location.hostname;
+  if (host.endsWith('.github.io')) {
+    const owner = host.split('.')[0];
+    const first = location.pathname.split('/').filter(Boolean)[0];
+    if (first && !first.includes('.')) return `https://raw.githubusercontent.com/${owner}/${first}/data/`;
+  }
+  return 'data/';
+}
+const BASE = dataBase();
+
+const state = {
+  games: [],
+  game: null,
+  region: null,
+  realms: [],
+  realmId: null,
+  snap: null,
+  names: {},
+  historyPromise: null,
+  sortKey: 'q',
+  sortDir: -1,
+  page: 0,
+  seq: 0
+};
+const realmCache = new Map();
+const nameCache = new Map();
+
+async function fetchData(rel) {
+  const res = await fetch(BASE + rel, { cache: 'no-cache' });
+  if (!res.ok) throw new Error(`${res.status} for ${rel}`);
+  if (rel.endsWith('.gz')) {
+    const buf = new Uint8Array(await res.arrayBuffer());
+    if (buf[0] === 0x1f && buf[1] === 0x8b) {
+      const stream = new Blob([buf]).stream().pipeThrough(new DecompressionStream('gzip'));
+      return JSON.parse(await new Response(stream).text());
+    }
+    return JSON.parse(new TextDecoder().decode(buf));
+  }
+  return res.json();
+}
+
+function money(c) {
+  if (c === null || c === undefined) return '<span class="dim">no buyout</span>';
+  const g = Math.floor(c / 10000);
+  const s = Math.floor((c % 10000) / 100);
+  const cp = c % 100;
+  let out = '';
+  if (g) out += `<span class="g">${g.toLocaleString()}</span>`;
+  if (g || s) out += `<span class="s">${s}</span>`;
+  out += `<span class="c">${cp}</span>`;
+  return out;
+}
+
+function moneyText(c) {
+  if (c >= 10000) return (c / 10000).toLocaleString(undefined, { maximumFractionDigits: c >= 1000000 ? 0 : 1 }) + 'g';
+  if (c >= 100) return Math.floor(c / 100) + 's ' + Math.round(c % 100) + 'c';
+  return Math.round(c) + 'c';
+}
+
+function nameOf(id) {
+  return state.names[id] || `Item #${id}`;
+}
+
+function setStatus(text, isError) {
+  const el = $('status');
+  el.className = isError ? 'err' : '';
+  el.textContent = text;
+}
+
+function ago(iso) {
+  const mins = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
+  if (mins < 2) return 'just now';
+  if (mins < 90) return `${mins} minutes ago`;
+  const hrs = Math.round(mins / 60);
+  if (hrs < 48) return `${hrs} hours ago`;
+  return `${Math.round(hrs / 24)} days ago`;
+}
+
+function fillSelect(sel, options, selected) {
+  sel.innerHTML = options.map(o => `<option value="${esc(o.value)}">${esc(o.label)}</option>`).join('');
+  if (selected !== null && options.some(o => String(o.value) === String(selected))) sel.value = selected;
+}
+
+function fillRealms() {
+  const q = $('realmFilter').value.trim().toLowerCase();
+  const current = state.realmId === null ? null : String(state.realmId);
+  const matches = state.realms.filter(r => !q || r.names.join(' ').toLowerCase().includes(q));
+  const shown = matches.length ? matches : state.realms.filter(r => String(r.id) === current);
+  const options = shown.map(r => ({ value: r.id, label: r.names.join(' / ') }));
+  fillSelect($('realm'), options, current);
+  return matches.length ? options : [];
+}
+
+async function init() {
+  try {
+    const manifest = await fetchData('games.json');
+    state.games = manifest.games || [];
+  } catch (err) {
+    setStatus(`Could not load data from ${BASE} (${err.message}). Run the collector workflow first, or add ?data=URL to point at a data folder.`, true);
+    return;
+  }
+  if (!state.games.length) {
+    setStatus('No data has been collected yet.', true);
+    return;
+  }
+  fillSelect($('game'), state.games.map(g => ({ value: g.id, label: g.label })), store.get('ah.game'));
+  await onGame(true);
+}
+
+async function onGame(restore) {
+  state.game = $('game').value;
+  store.set('ah.game', state.game);
+  const g = state.games.find(x => x.id === state.game);
+  fillSelect($('region'), g.regions.map(r => ({ value: r, label: r.toUpperCase() })), restore ? store.get('ah.region') : null);
+  await onRegion(restore);
+}
+
+async function onRegion(restore) {
+  state.region = $('region').value;
+  store.set('ah.region', state.region);
+  const key = `${state.game}/${state.region}`;
+  const seq = ++state.seq;
+  setStatus('Loading servers');
+  try {
+    if (!realmCache.has(key)) realmCache.set(key, (await fetchData(`${key}/realms.json`)).realms);
+  } catch (err) {
+    if (seq === state.seq) setStatus(`Could not load servers: ${err.message}`, true);
+    return;
+  }
+  if (seq !== state.seq) return;
+  state.realms = realmCache.get(key);
+  $('realmFilter').value = '';
+  const saved = restore ? store.get('ah.realm') : null;
+  const found = state.realms.find(r => String(r.id) === saved);
+  state.realmId = found ? found.id : state.realms[0].id;
+  fillRealms();
+  $('realm').value = state.realmId;
+  await loadRealm();
+}
+
+async function loadRealm() {
+  const seq = ++state.seq;
+  const key = `${state.game}/${state.region}/${state.realmId}`;
+  store.set('ah.realm', String(state.realmId));
+  setStatus('Loading auctions');
+  $('rows').innerHTML = '';
+  try {
+    const namesPromise = nameCache.has(state.game)
+      ? Promise.resolve(nameCache.get(state.game))
+      : fetchData(`${state.game}/items.json`).catch(() => ({}));
+    const [snap, names] = await Promise.all([fetchData(`${key}/latest.json.gz`), namesPromise]);
+    if (seq !== state.seq) return;
+    nameCache.set(state.game, names);
+    state.snap = snap;
+    state.names = names;
+    state.historyPromise = null;
+    state.page = 0;
+    render();
+  } catch (err) {
+    if (seq !== state.seq) return;
+    state.snap = null;
+    $('empty').hidden = false;
+    $('empty').textContent = 'No data for this server yet.';
+    setStatus(`Could not load auctions: ${err.message}`, true);
+    $('pageInfo').textContent = '';
+    $('prev').disabled = true;
+    $('next').disabled = true;
+  }
+}
+
+function filteredRows() {
+  const q = $('search').value.trim().toLowerCase();
+  const min = parseFloat($('minPrice').value);
+  const max = parseFloat($('maxPrice').value);
+  const out = [];
+  for (const e of state.snap.items) {
+    const name = nameOf(e.i);
+    if (q && !name.toLowerCase().includes(q) && String(e.i) !== q) continue;
+    if (!isNaN(min) && (e.m === null || e.m < min * 10000)) continue;
+    if (!isNaN(max) && (e.m === null || e.m > max * 10000)) continue;
+    out.push({ e, name });
+  }
+  const dir = state.sortDir;
+  const key = state.sortKey;
+  out.sort((a, b) => {
+    if (key === 'name') return dir * a.name.localeCompare(b.name);
+    if (key === 'm') {
+      if (a.e.m === null && b.e.m === null) return 0;
+      if (a.e.m === null) return 1;
+      if (b.e.m === null) return -1;
+      return dir * (a.e.m - b.e.m);
+    }
+    return dir * (a.e[key] - b.e[key]);
+  });
+  return out;
+}
+
+function render() {
+  if (!state.snap) return;
+  const list = filteredRows();
+  const pages = Math.max(1, Math.ceil(list.length / PAGE_SIZE));
+  if (state.page >= pages) state.page = pages - 1;
+  const slice = list.slice(state.page * PAGE_SIZE, (state.page + 1) * PAGE_SIZE);
+  $('rows').innerHTML = slice.map(({ e, name }) =>
+    `<tr data-id="${e.i}" tabindex="0"><td>${esc(name)}</td><td>${e.q.toLocaleString()}</td><td class="hide-sm">${e.n.toLocaleString()}</td><td>${money(e.m)}</td></tr>`
+  ).join('');
+  $('empty').hidden = list.length > 0;
+  $('empty').textContent = 'No items match your filters.';
+  $('pageInfo').textContent = `Page ${state.page + 1} of ${pages}`;
+  $('prev').disabled = state.page === 0;
+  $('next').disabled = state.page >= pages - 1;
+  const realm = state.snap.realms.join(' / ');
+  setStatus(`${realm}: ${list.length.toLocaleString()} items shown of ${state.snap.items.length.toLocaleString()}. Updated ${ago(state.snap.u)}.`);
+  document.querySelectorAll('thead th[data-key]').forEach(th => {
+    th.setAttribute('aria-sort', th.dataset.key === state.sortKey ? (state.sortDir === 1 ? 'ascending' : 'descending') : 'none');
+  });
+}
+
+function loadHistory() {
+  if (!state.historyPromise) {
+    state.historyPromise = fetchData(`${state.game}/${state.region}/${state.realmId}/history.json.gz`);
+  }
+  return state.historyPromise;
+}
+
+let chartPoints = [];
+
+function drawChart(hi) {
+  const canvas = $('chart');
+  const dpr = window.devicePixelRatio || 1;
+  const w = canvas.clientWidth;
+  const h = canvas.clientHeight;
+  canvas.width = Math.round(w * dpr);
+  canvas.height = Math.round(h * dpr);
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, w, h);
+  const css = getComputedStyle(document.documentElement);
+  const accent = css.getPropertyValue('--accent').trim();
+  const dim = css.getPropertyValue('--dim').trim();
+  const line = css.getPropertyValue('--line').trim();
+  const pts = chartPoints;
+  if (!pts.length) return;
+  const L = 74, R = 14, T = 14, B = 26;
+  const xs = pts.map(p => p[0]);
+  const ys = pts.map(p => p[1]);
+  const x0 = Math.min(...xs), x1 = Math.max(...xs);
+  let y0 = Math.min(...ys), y1 = Math.max(...ys);
+  if (y0 === y1) { y0 = Math.max(0, y0 * 0.9); y1 = y1 * 1.1 + 1; }
+  const pad = (y1 - y0) * 0.08;
+  y0 = Math.max(0, y0 - pad);
+  y1 += pad;
+  const px = t => (x1 === x0 ? L + (w - L - R) / 2 : L + ((t - x0) / (x1 - x0)) * (w - L - R));
+  const py = v => T + (1 - (v - y0) / (y1 - y0)) * (h - T - B);
+  ctx.font = '11px system-ui, sans-serif';
+  ctx.fillStyle = dim;
+  ctx.strokeStyle = line;
+  ctx.lineWidth = 1;
+  ctx.textAlign = 'right';
+  ctx.textBaseline = 'middle';
+  for (let i = 0; i <= 4; i++) {
+    const v = y0 + ((y1 - y0) * i) / 4;
+    const y = py(v);
+    ctx.beginPath();
+    ctx.moveTo(L, y);
+    ctx.lineTo(w - R, y);
+    ctx.stroke();
+    ctx.fillText(moneyText(v), L - 6, y);
+  }
+  ctx.textBaseline = 'top';
+  const span = x1 - x0;
+  const fmt = t => {
+    const d = new Date(t * 1000);
+    return span < 3 * 86400 ? d.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric' }) : d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  };
+  ctx.textAlign = 'left';
+  ctx.fillText(fmt(x0), L, h - B + 8);
+  if (x1 !== x0) {
+    ctx.textAlign = 'right';
+    ctx.fillText(fmt(x1), w - R, h - B + 8);
+  }
+  ctx.strokeStyle = accent;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  pts.forEach((p, i) => (i ? ctx.lineTo(px(p[0]), py(p[1])) : ctx.moveTo(px(p[0]), py(p[1]))));
+  ctx.stroke();
+  ctx.fillStyle = accent;
+  if (pts.length <= 40) pts.forEach(p => { ctx.beginPath(); ctx.arc(px(p[0]), py(p[1]), 2.5, 0, Math.PI * 2); ctx.fill(); });
+  if (hi !== undefined && pts[hi]) {
+    ctx.beginPath();
+    ctx.arc(px(pts[hi][0]), py(pts[hi][1]), 5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  canvas._px = pts.map(p => px(p[0]));
+}
+
+function openDetail(id) {
+  const e = state.snap.items.find(x => x.i === id);
+  if (!e) return;
+  const classic = state.game !== 'retail';
+  $('dlgTitle').textContent = nameOf(id);
+  $('dlgLink').href = `https://www.wowhead.com/${classic ? 'classic/' : ''}item=${id}`;
+  const total = e.l.length ? e.l.reduce((s, l) => s + l[0], 0) : 0;
+  $('dlgStats').innerHTML = [
+    ['Lowest price', money(e.m)],
+    ['Total quantity', e.q.toLocaleString()],
+    ['Listings', e.n.toLocaleString()],
+    ['Shown below', `${e.l.length} listings, ${total.toLocaleString()} units`]
+  ].map(([k, v]) => `<div class="stat"><b>${k}</b>${v}</div>`).join('');
+  $('listingsTable').classList.toggle('nofaction', !e.l.some(l => l[3]));
+  $('dlgListings').innerHTML = e.l.length
+    ? e.l.map(l => `<tr><td>${l[0].toLocaleString()}</td><td>${money(l[1])}</td><td>${money(l[0] * l[1])}</td><td>${esc(TIME_LABEL[l[2]] || '')}</td><td>${esc(l[3] ? l[3][0].toUpperCase() + l[3].slice(1) : '')}</td></tr>`).join('')
+    : '<tr><td colspan="5" class="dim">No buyout listings.</td></tr>';
+  chartPoints = [];
+  $('chartTip').textContent = 'Loading history';
+  const dlg = $('detail');
+  if (!dlg.open) dlg.showModal();
+  drawChart();
+  loadHistory().then(hist => {
+    if (!$('detail').open || $('dlgTitle').textContent !== nameOf(id)) return;
+    const pts = hist.h && hist.h[id];
+    if (!pts || !pts.length) {
+      $('chartTip').textContent = 'No history for this item yet. History builds up as hourly snapshots are collected.';
+      return;
+    }
+    chartPoints = pts;
+    $('chartTip').textContent = pts.length < 2 ? 'Only one snapshot so far. The line appears after the next hourly update.' : 'Hover or touch the chart to see prices.';
+    drawChart();
+  }).catch(() => {
+    $('chartTip').textContent = 'History is not available for this server.';
+  });
+}
+
+function chartHover(ev) {
+  const canvas = $('chart');
+  if (!chartPoints.length || !canvas._px) return;
+  const rect = canvas.getBoundingClientRect();
+  const x = (ev.touches ? ev.touches[0].clientX : ev.clientX) - rect.left;
+  let best = 0;
+  canvas._px.forEach((p, i) => { if (Math.abs(p - x) < Math.abs(canvas._px[best] - x)) best = i; });
+  const p = chartPoints[best];
+  drawChart(best);
+  $('chartTip').textContent = `${new Date(p[0] * 1000).toLocaleString()}: lowest ${moneyText(p[1])} each, ${p[2].toLocaleString()} for sale`;
+}
+
+$('game').addEventListener('change', () => onGame(false));
+$('region').addEventListener('change', () => onRegion(false));
+$('realm').addEventListener('change', () => {
+  state.realmId = $('realm').value === 'commodities' ? 'commodities' : Number($('realm').value);
+  loadRealm();
+});
+let filterTimer = null;
+$('realmFilter').addEventListener('input', () => {
+  clearTimeout(filterTimer);
+  filterTimer = setTimeout(() => {
+    const options = fillRealms();
+    if (options.length && !options.some(o => String(o.value) === String(state.realmId))) {
+      $('realm').selectedIndex = 0;
+      $('realm').dispatchEvent(new Event('change'));
+    }
+  }, 250);
+});
+let searchTimer = null;
+['search', 'minPrice', 'maxPrice'].forEach(id => $(id).addEventListener('input', () => {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => { state.page = 0; render(); }, 150);
+}));
+document.querySelectorAll('thead th[data-key]').forEach(th => th.addEventListener('click', () => {
+  const key = th.dataset.key;
+  if (state.sortKey === key) state.sortDir = -state.sortDir;
+  else { state.sortKey = key; state.sortDir = key === 'name' || key === 'm' ? 1 : -1; }
+  state.page = 0;
+  render();
+}));
+$('rows').addEventListener('click', ev => {
+  const tr = ev.target.closest('tr[data-id]');
+  if (tr) openDetail(Number(tr.dataset.id));
+});
+$('rows').addEventListener('keydown', ev => {
+  if (ev.key !== 'Enter') return;
+  const tr = ev.target.closest('tr[data-id]');
+  if (tr) openDetail(Number(tr.dataset.id));
+});
+$('prev').addEventListener('click', () => { state.page--; render(); window.scrollTo({ top: 0 }); });
+$('next').addEventListener('click', () => { state.page++; render(); window.scrollTo({ top: 0 }); });
+$('reload').addEventListener('click', () => { if (state.region) loadRealm(); else init(); });
+$('dlgClose').addEventListener('click', () => $('detail').close());
+$('detail').addEventListener('click', ev => { if (ev.target === $('detail')) $('detail').close(); });
+$('chart').addEventListener('mousemove', chartHover);
+$('chart').addEventListener('touchmove', chartHover, { passive: true });
+$('chart').addEventListener('mouseleave', () => { if (chartPoints.length) drawChart(); });
+window.addEventListener('resize', () => { if ($('detail').open) drawChart(); });
+
+init();
+</script>
+</body>
+</html>

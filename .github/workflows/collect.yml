@@ -1,0 +1,62 @@
+name: Collect auction data
+
+on:
+  schedule:
+    - cron: '17 * * * *'
+  workflow_dispatch:
+    inputs:
+      games:
+        description: Comma separated games (retail,classic,classic1x)
+        required: false
+        default: retail,classic,classic1x
+      regions:
+        description: Comma separated regions (us,eu,kr,tw)
+        required: false
+        default: us,eu
+
+permissions:
+  contents: write
+
+concurrency:
+  group: collect-auction-data
+  cancel-in-progress: false
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Restore previous data branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git clone --quiet --depth=1 --branch data "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" data-out || mkdir -p data-out
+
+      - name: Collect
+        env:
+          BLIZZARD_CLIENT_ID: ${{ secrets.BLIZZARD_CLIENT_ID }}
+          BLIZZARD_CLIENT_SECRET: ${{ secrets.BLIZZARD_CLIENT_SECRET }}
+          OUT_DIR: data-out
+          GAMES: ${{ github.event.inputs.games || 'retail,classic,classic1x' }}
+          REGIONS: ${{ github.event.inputs.regions || 'us,eu' }}
+        run: node collector/collect.mjs
+
+      - name: Publish data branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cd data-out
+          rm -rf .git
+          git init --quiet -b data
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit --quiet -m "Auction data $(date -u +%Y-%m-%dT%H:%MZ)"
+          git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git"
+          git push --force origin data
