@@ -29,11 +29,11 @@
    "kb": 125
   },
   "2597": {
-   "w": 1000,
-   "h": 667,
-   "ui": 91,
-   "hit": 1.0,
-   "kb": 30
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Alterac Valley",
+   "kb": 140
   },
   "2437": {
    "w": 1000,
@@ -860,6 +860,69 @@
    "src": "zone",
    "name": "Isle of Giants",
    "kb": 124
+  },
+  "4493": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "The Obsidian Sanctum",
+   "kb": 115
+  },
+  "493": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Moonglade",
+   "kb": 118
+  },
+  "4987": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "The Ruby Sanctum",
+   "kb": 104
+  },
+  "6040": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Dustwallow Marsh",
+   "kb": 137
+  },
+  "6101": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "A Brewing Storm",
+   "kb": 86
+  },
+  "6426": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Brewmoon Festival",
+   "kb": 107
+  },
+  "6500": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Dustwallow Marsh",
+   "kb": 132
+  },
+  "6507": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Isle of Thunder",
+   "kb": 137
+  },
+  "6613": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Black Temple",
+   "kb": 86
   }
  },
  "instances": {
@@ -994,6 +1057,27 @@
    "h": 668,
    "src": "zone",
    "kb": 151
+  },
+  "The Obsidian Sanctum": {
+   "img": "z4493",
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "kb": 115
+  },
+  "The Ruby Sanctum": {
+   "img": "z4987",
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "kb": 104
+  },
+  "Black Temple": {
+   "img": "z6613",
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "kb": 86
   }
  }
 }
