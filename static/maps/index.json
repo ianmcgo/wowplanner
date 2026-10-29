@@ -8,11 +8,11 @@
    "kb": 135
   },
   "4755": {
-   "w": 1000,
-   "h": 667,
-   "ui": 202,
-   "hit": 1.0,
-   "kb": 25
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Gilneas City",
+   "kb": 106
   },
   "5736": {
    "w": 1002,
@@ -22,11 +22,11 @@
    "kb": 127
   },
   "5861": {
-   "w": 1000,
-   "h": 667,
-   "ui": 407,
-   "hit": 1.0,
-   "kb": 17
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Darkmoon Island",
+   "kb": 125
   },
   "2597": {
    "w": 1000,
@@ -734,6 +734,62 @@
    "src": "zone",
    "name": "Camp Narache",
    "kb": 118
+  },
+  "3557": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "The Exodar",
+   "kb": 168
+  },
+  "4742": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Hrothgars Landing",
+   "kb": 129
+  },
+  "5918": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Shado-Pan Monastery",
+   "kb": 117
+  },
+  "6067": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Terrace of Endless Spring",
+   "kb": 102
+  },
+  "6450": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Shadowglen",
+   "kb": 130
+  },
+  "6451": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Valley of Trials",
+   "kb": 110
+  },
+  "6456": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Ammen Vale",
+   "kb": 142
+  },
+  "6457": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "New Tinkertown",
+   "kb": 159
   }
  },
  "instances": {
@@ -833,6 +889,20 @@
    "h": 668,
    "src": "zone",
    "kb": 107
+  },
+  "Shado-Pan Monastery": {
+   "img": "z5918",
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "kb": 117
+  },
+  "Terrace of Endless Spring": {
+   "img": "z6067",
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "kb": 102
   }
  }
 }
