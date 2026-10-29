@@ -59,7 +59,65 @@ export function startMock(port) {
     m = /^\/data\/wow\/item\/(\d+)$/.exec(p);
     if (m) {
       if (m[1] === '139') return json({}, 404);
-      return json({ id: Number(m[1]), name: `Test Item ${m[1]}` });
+      const id = Number(m[1]);
+      const kinds = ['Herb', 'Metal & Stone', 'Leather', 'Cloth', null];
+      const kind = kinds[id % 5];
+      return json({
+        id,
+        name: `Test Item ${id}`,
+        item_class: kind ? { id: 7, name: 'Trade Goods' } : { id: 2, name: 'Weapon' },
+        item_subclass: { id: 0, name: kind || 'Sword' }
+      });
+    }
+    if (p === '/data/wow/profession/index') {
+      if (classic) return json({}, 404);
+      return json({ professions: [{ id: 171, name: 'Alchemy' }, { id: 164, name: 'Blacksmithing' }, { id: 182, name: 'Herbalism' }] });
+    }
+    m = /^\/data\/wow\/profession\/(\d+)$/.exec(p);
+    if (m) {
+      if (m[1] === '182') return json({ id: 182 });
+      return json({ skill_tiers: [10, 11, 12, 13].map(id => ({ id, name: `Tier ${id}` })) });
+    }
+    m = /^\/data\/wow\/profession\/(\d+)\/skill-tier\/(\d+)$/.exec(p);
+    if (m) {
+      const base = Number(m[1]) * 1000 + Number(m[2]) * 10;
+      return json({ categories: [{ name: 'Everything', recipes: [1, 2, 3, 9].map(k => ({ id: base + k, name: `Recipe ${base + k}` })) }] });
+    }
+    m = /^\/data\/wow\/recipe\/(\d+)$/.exec(p);
+    if (m) {
+      const id = Number(m[1]);
+      if (id % 10 === 9) return json({ id, name: 'Enchant Something' });
+      const crafted = 120 + (id % 15);
+      return json({
+        id,
+        crafted_item: { id: crafted, name: `Test Item ${crafted}` },
+        crafted_quantity: { value: 1 + (id % 2) },
+        reagents: [
+          { reagent: { id: 100 + (id % 10), name: `Test Item ${100 + (id % 10)}` }, quantity: 2 },
+          { reagent: { id: 105 + (id % 7), name: `Test Item ${105 + (id % 7)}` }, quantity: 1 }
+        ]
+      });
+    }
+    if (p === '/data/wow/journal-expansion/index') {
+      if (classic) return json({}, 404);
+      return json({ tiers: [{ id: 1, name: 'Classic' }] });
+    }
+    if (p === '/data/wow/journal-expansion/1') {
+      return json({ dungeons: [{ id: 5, name: 'Test Dungeon' }], raids: [{ id: 6, name: 'Test Raid' }] });
+    }
+    if (p === '/data/wow/journal-instance/5') return json({ encounters: [{ id: 50, name: 'Boss A' }, { id: 51, name: 'Boss B' }] });
+    if (p === '/data/wow/journal-instance/6') return json({ encounters: [{ id: 60, name: 'Raid Boss' }] });
+    m = /^\/data\/wow\/journal-encounter\/(\d+)$/.exec(p);
+    if (m) {
+      const id = Number(m[1]);
+      const a = 125 + (id % 5);
+      const b = 130 + (id % 5);
+      return json({
+        items: [
+          { id: 1, item: { id: a, name: `Test Item ${a}` } },
+          { id: 2, item: { id: b, name: `Test Item ${b}` } }
+        ]
+      });
     }
     return json({ error: 'not found' }, 404);
   });

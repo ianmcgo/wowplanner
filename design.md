@@ -42,6 +42,8 @@ Hourly snapshots for every realm are large. The workflow rebuilds the `data` bra
 ```
 games.json                          list of games and their regions
 {game}/items.json                   item id to name, filled gradually
+{game}/cats.json                    item id to gather category (herb, ore, leather, cloth, other)
+{game}/sources.json.gz              recipes and dungeon/raid drops, refreshed every few days
 {game}/{region}/realms.json         connected realms with their server names
 {game}/{region}/{realmId}/latest.json.gz
 {game}/{region}/{realmId}/history.json.gz
@@ -72,6 +74,29 @@ Prices are in copper. 10000 copper is 1 gold.
 - Each run adds points for the 300 most listed items per realm (`HISTORY_TOP`) and for any item that already has history.
 - This cap keeps the files small. Raise `HISTORY_TOP` if you want more items tracked and can accept larger files.
 
+### sources.json.gz
+```
+{ u, t, pending, recipes: { recipeId: { p, t, i, q, r } | null }, drops: { itemId: [[instance, boss], ...] } }
+```
+- `p` profession, `t` skill tier, `i` crafted item id, `q` quantity made, `r` reagents as `[itemId, quantity]`
+- `null` recipes are ones with no crafted item (for example enchants). They are remembered so they are not fetched again.
+- Only the newest `RECIPE_TIERS` skill tiers (default 3) of each profession are collected, so old expansion recipes are left out.
+- At most `RECIPE_FETCH_CAP` new recipes are fetched per run (default 6000). If more remain, `pending` is above zero and the next run continues.
+- Drops come from Blizzard's Journal API (Retail only), up to four bosses per item.
+- The whole file is rebuilt at most every `SOURCES_REFRESH_HOURS` (default 72), unless recipes are still pending.
+
+## Top 10 profits tab
+The tab works out profit in the browser from the selected server's latest prices plus `sources.json.gz` and `cats.json`.
+
+- **Crafted:** profit = lowest sell price x quantity made x (1 - 5% auction house cut) - reagent cost at today's lowest prices. Recipes with a reagent that has no auction listing (usually vendor-bought) are skipped. Only recipes with a profit above zero appear, best recipe per item.
+- **Gathered:** items categorized as herb, ore or leather and not crafted. Profit is the sell price minus the cut. The method shown is Herbalism, Mining or Skinning.
+- **Dungeon and raid drops:** items the Journal API lists as boss loot, with the boss and instance names.
+- **Other:** everything else, including cloth. The card says Blizzard's data does not tell where it comes from, and links to Wowhead.
+- Every card links to the item's Wowhead page for every way to get it. Nothing is copied from Wowhead.
+- **Min listings** (default 3) hides items with very few listings, which often have unrealistic prices.
+- Profit is an estimate. Auction snapshots show what is listed, not what sells, and the lowest price may not hold if you buy many reagents.
+- Classic games depend on Blizzard providing profession endpoints for them. If they do not, the Crafted and Dungeon tabs say no data is available and the other tabs still work.
+
 ## Collector settings (environment variables)
 
 | Variable | Default | Meaning |
@@ -84,6 +109,9 @@ Prices are in copper. 10000 copper is 1 gold.
 | `CONCURRENCY` | 8 | Parallel requests |
 | `ITEM_LOOKUPS` | 400 | New item names fetched per region per run |
 | `HISTORY_TOP` | 300 | Items tracked in history per realm |
+| `RECIPE_TIERS` | 3 | Newest skill tiers collected per profession |
+| `RECIPE_FETCH_CAP` | 6000 | New recipes fetched per run |
+| `SOURCES_REFRESH_HOURS` | 72 | How often recipes and drops are refreshed |
 
 Item names fill in over several runs. Until an item name is known the page shows `Item #id`.
 
@@ -92,7 +120,9 @@ Item names fill in over several runs. Until an item name is known the page shows
 - Realm list: `/data/wow/connected-realm/index`, then `/data/wow/connected-realm/{id}` for the server names.
 - Retail auctions: `/data/wow/connected-realm/{id}/auctions`, plus `/data/wow/auctions/commodities` for region-wide goods.
 - Classic auctions: the collector first tries `/auctions/index` and then `/auctions/{houseId}` for each faction house, and falls back to the plain `/auctions` endpoint if the index is missing.
-- Item names: `/data/wow/item/{id}` in the `static` namespace.
+- Item names and category: `/data/wow/item/{id}` in the `static` namespace. Trade Goods subclasses Herb, Metal & Stone and Leather become gather categories.
+- Recipes: `/data/wow/profession/index`, then each profession, its skill tiers, and `/data/wow/recipe/{id}` for reagents and the crafted item.
+- Drops: `/data/wow/journal-expansion/index`, then instances, then `/data/wow/journal-encounter/{id}` for each boss's item list.
 - Retries on 429 and 5xx, honoring `Retry-After`. Gets a new token on a 401.
 - China is not supported because it uses a different token address.
 
@@ -111,9 +141,11 @@ These were built from documentation and forum reports, then tested against a moc
 - Remembers your last game, region and server in the browser.
 - Works on phone width. Footer credits Ian McGonigal with website and Patreon links.
 
-## Not in v1
+## Not yet done
 - Same item price across other servers.
 - Item icons.
+- Real sales data, so profit ranking does not account for how fast items sell.
+- Specific farming spots and quest rewards. These are only available as Wowhead links.
 - A Forever entry (see above).
 - An addon import path for games without API endpoints.
 

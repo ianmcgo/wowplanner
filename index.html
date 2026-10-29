@@ -154,6 +154,28 @@ h3 { font-size: .85rem; color: var(--dim); text-transform: uppercase; letter-spa
 .mini.nofaction th:nth-child(5), .mini.nofaction td:nth-child(5) { display: none; }
 canvas { width: 100%; height: 220px; display: block; background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; }
 .tip { min-height: 1.4em; color: var(--dim); font-size: .88rem; margin-top: 6px; }
+.tabs { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+.tabs button { border-radius: 10px; padding: 9px 16px; background: transparent; color: var(--dim); }
+.tabs button[aria-selected="true"] { background: var(--panel-2); color: var(--text); border-color: var(--accent); }
+.profit-mode .lf { display: none; }
+.profit-controls { display: flex; flex-wrap: wrap; gap: 12px 18px; align-items: flex-end; margin-bottom: 10px; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { border-radius: 999px; padding: 7px 14px; }
+.chip[aria-pressed="true"] { background: var(--accent); color: #1a1405; border-color: var(--accent); font-weight: 600; }
+.field.small { width: 120px; }
+.cards { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.card { display: grid; grid-template-columns: 36px 1fr; gap: 12px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px; }
+.rank { font-size: 1.4rem; font-weight: 700; color: var(--accent); text-align: center; }
+.card-title { font-size: 1.05rem; font-weight: 600; }
+.card-title a { color: var(--text); text-decoration: none; }
+.card-title a:hover { color: var(--accent-2); text-decoration: underline; }
+.pstats { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 6px 0 8px; font-size: .92rem; color: var(--dim); }
+.pstats b { color: var(--text); font-weight: 500; }
+.pstats .good b { color: #7bd88f; font-weight: 600; }
+.how p { margin: 6px 0; }
+.how ul { margin: 4px 0 6px 18px; padding: 0; }
+.how a { color: var(--accent-2); font-size: .9rem; }
+.note { color: var(--dim); font-size: .86rem; margin: 14px 0 0; }
 footer { margin-top: auto; padding: 24px 0 28px; color: var(--dim); font-size: .88rem; text-align: center; }
 footer a { color: var(--accent-2); }
 footer p { margin: 4px 0; }
@@ -171,6 +193,11 @@ footer p { margin: 4px 0; }
     <p class="sub">Current listings by game and server, refreshed about once an hour.</p>
   </header>
 
+  <div class="tabs" role="tablist">
+    <button type="button" role="tab" id="tabListings" aria-selected="true">Listings</button>
+    <button type="button" role="tab" id="tabProfit" aria-selected="false">Top 10 profits</button>
+  </div>
+
   <section class="controls" aria-label="Choose game and server">
     <div class="field">
       <label for="game">Game</label>
@@ -185,20 +212,21 @@ footer p { margin: 4px 0; }
       <input type="search" id="realmFilter" placeholder="Filter servers by name" aria-label="Filter servers">
       <select id="realm"></select>
     </div>
-    <div class="field">
+    <div class="field lf">
       <label for="search">Item name</label>
       <input type="search" id="search" placeholder="Search items">
     </div>
-    <div class="field">
+    <div class="field lf">
       <label for="minPrice">Min price (gold)</label>
       <input type="number" id="minPrice" min="0" step="any" inputmode="decimal">
     </div>
-    <div class="field">
+    <div class="field lf">
       <label for="maxPrice">Max price (gold)</label>
       <input type="number" id="maxPrice" min="0" step="any" inputmode="decimal">
     </div>
   </section>
 
+  <div id="listingsPanel">
   <div class="status">
     <span id="status">Loading</span>
     <button id="reload" type="button">Reload</button>
@@ -224,6 +252,25 @@ footer p { margin: 4px 0; }
     <span id="pageInfo"></span>
     <button id="next" type="button">Next</button>
   </div>
+  </div>
+
+  <section id="profitPanel" hidden>
+    <div class="profit-controls">
+      <div class="chips" role="group" aria-label="How the item is obtained">
+        <button type="button" class="chip" data-method="craft" aria-pressed="true">Crafted</button>
+        <button type="button" class="chip" data-method="gather" aria-pressed="false">Gathered</button>
+        <button type="button" class="chip" data-method="dungeon" aria-pressed="false">Dungeon and raid drops</button>
+        <button type="button" class="chip" data-method="other" aria-pressed="false">Other (farm, quest, vendor)</button>
+      </div>
+      <div class="field small">
+        <label for="minListings">Min listings</label>
+        <input type="number" id="minListings" min="1" value="3" inputmode="numeric">
+      </div>
+    </div>
+    <p class="status" id="profitStatus">Loading</p>
+    <ol class="cards" id="cards"></ol>
+    <p class="note">Estimates only. Profit is the lowest sell price minus the 5% auction house cut and the cost of reagents at today's lowest prices. Recipes that need reagents sold only by vendors are skipped. The auction data shows what is listed, not what sells, so check the listings count before you commit gold.</p>
+  </section>
 </div>
 
 <dialog id="detail" aria-labelledby="dlgTitle">
@@ -278,6 +325,8 @@ function dataBase() {
 const BASE = dataBase();
 
 const state = {
+  mode: 'listings',
+  method: 'craft',
   games: [],
   game: null,
   region: null,
@@ -334,6 +383,9 @@ function setStatus(text, isError) {
   const el = $('status');
   el.className = isError ? 'err' : '';
   el.textContent = text;
+  const pel = $('profitStatus');
+  pel.className = isError ? 'status err' : 'status';
+  pel.textContent = text;
 }
 
 function ago(iso) {
@@ -424,7 +476,7 @@ async function loadRealm() {
     state.names = names;
     state.historyPromise = null;
     state.page = 0;
-    render();
+    refresh();
   } catch (err) {
     if (seq !== state.seq) return;
     state.snap = null;
@@ -612,6 +664,153 @@ function chartHover(ev) {
   $('chartTip').textContent = `${new Date(p[0] * 1000).toLocaleString()}: lowest ${moneyText(p[1])} each, ${p[2].toLocaleString()} for sale`;
 }
 
+const AH_CUT = 0.05;
+const GATHER_TEXT = {
+  herb: 'Herbalism: pick it from herb nodes out in the world.',
+  ore: 'Mining: mine it from ore veins.',
+  leather: 'Skinning: skin beasts to get it.'
+};
+const metaCache = new Map();
+
+function ensureMeta(game) {
+  if (!metaCache.has(game)) {
+    metaCache.set(game, Promise.all([
+      fetchData(`${game}/sources.json.gz`).catch(() => null),
+      fetchData(`${game}/cats.json`).catch(() => ({}))
+    ]).then(([sources, cats]) => ({ sources, cats })));
+  }
+  return metaCache.get(game);
+}
+
+function wowheadUrl(id) {
+  return `https://www.wowhead.com/${state.game === 'retail' ? '' : 'classic/'}item=${id}`;
+}
+
+function classify(id, meta) {
+  if (meta.sources && meta.sources.drops && meta.sources.drops[id]) return 'dungeon';
+  const c = meta.cats[id];
+  if (c === 'herb' || c === 'ore' || c === 'leather') return 'gather';
+  return 'other';
+}
+
+function computeProfits(method, minListings, meta) {
+  const price = new Map(state.snap.items.map(e => [e.i, e]));
+  const recipes = (meta.sources && meta.sources.recipes) || {};
+  if (method === 'craft') {
+    const best = new Map();
+    for (const r of Object.values(recipes)) {
+      if (!r || !r.r.length) continue;
+      const sell = price.get(r.i);
+      if (!sell || sell.m === null || sell.n < minListings) continue;
+      let cost = 0;
+      let complete = true;
+      const reagents = [];
+      for (const [id, qty] of r.r) {
+        const p = price.get(id);
+        if (!p || p.m === null) { complete = false; break; }
+        cost += p.m * qty;
+        reagents.push({ id, qty, unit: p.m });
+      }
+      if (!complete) continue;
+      const profit = sell.m * r.q * (1 - AH_CUT) - cost;
+      if (profit <= 0) continue;
+      const cur = best.get(r.i);
+      if (!cur || profit > cur.profit) {
+        best.set(r.i, { id: r.i, method, profit, sell: sell.m * r.q, cost, n: sell.n, q: sell.q, recipe: r, reagents });
+      }
+    }
+    return [...best.values()].sort((a, b) => b.profit - a.profit).slice(0, 10);
+  }
+  const crafted = new Set(Object.values(recipes).filter(Boolean).map(r => r.i));
+  const out = [];
+  for (const e of state.snap.items) {
+    if (e.m === null || e.n < minListings) continue;
+    if (classify(e.i, meta) !== method) continue;
+    if (method !== 'dungeon' && crafted.has(e.i)) continue;
+    out.push({ id: e.i, method, profit: e.m * (1 - AH_CUT), sell: e.m, cost: 0, n: e.n, q: e.q });
+  }
+  return out.sort((a, b) => b.profit - a.profit).slice(0, 10);
+}
+
+function howHtml(item, meta) {
+  let body = '';
+  if (item.method === 'craft') {
+    const r = item.recipe;
+    const lines = item.reagents.map(x => `<li>${x.qty}× ${esc(nameOf(x.id))} at ${money(Math.round(x.unit))} each</li>`).join('');
+    body = `<p><b>Craft it.</b> ${esc(r.p)}${r.t ? ' (' + esc(r.t) + ')' : ''}. Makes ${r.q} per craft.</p><ul>${lines}</ul>`;
+  } else if (item.method === 'gather') {
+    body = `<p><b>Gather it.</b> ${esc(GATHER_TEXT[meta.cats[item.id]] || '')}</p>`;
+  } else if (item.method === 'dungeon') {
+    const lines = meta.sources.drops[item.id].map(d => `<li>${esc(d[1])} in ${esc(d[0])}</li>`).join('');
+    body = `<p><b>Dungeon or raid drop.</b></p><ul>${lines}</ul>`;
+  } else {
+    const cloth = meta.cats[item.id] === 'cloth' ? ' Cloth usually drops from humanoid enemies.' : '';
+    body = `<p><b>Farmed, a quest reward, or sold by a vendor.</b> Blizzard's data does not say which.${cloth}</p>`;
+  }
+  return `${body}<a href="${wowheadUrl(item.id)}" target="_blank" rel="noopener">See every way to get it on Wowhead</a>`;
+}
+
+async function renderProfit() {
+  if (!state.snap) return;
+  const seq = state.seq;
+  const meta = await ensureMeta(state.game);
+  if (seq !== state.seq || state.mode !== 'profit') return;
+  const minListings = Math.max(1, parseInt($('minListings').value, 10) || 1);
+  if (state.method === 'craft' && !(meta.sources && Object.keys(meta.sources.recipes || {}).length)) {
+    $('cards').innerHTML = '';
+    setStatus('No recipe data has been collected for this game yet, so crafted profits cannot be shown.');
+    return;
+  }
+  if (state.method === 'dungeon' && !(meta.sources && Object.keys(meta.sources.drops || {}).length)) {
+    $('cards').innerHTML = '';
+    setStatus('No dungeon or raid drop data is available for this game.');
+    return;
+  }
+  const list = computeProfits(state.method, minListings, meta);
+  $('cards').innerHTML = list.map((it, i) => {
+    const sellLabel = it.method === 'craft' && it.recipe.q > 1 ? `Sells ${it.recipe.q} for` : 'Sells for';
+    return `<li class="card"><div class="rank">${i + 1}</div><div><div class="card-title"><a href="${wowheadUrl(it.id)}" target="_blank" rel="noopener">${esc(nameOf(it.id))}</a></div>` +
+      `<div class="pstats"><span class="good">Profit <b>${money(Math.round(it.profit))}</b></span><span>${sellLabel} <b>${money(Math.round(it.sell))}</b></span>` +
+      (it.method === 'craft' ? `<span>Cost <b>${money(Math.round(it.cost))}</b></span>` : '') +
+      `<span>Listings <b>${it.n.toLocaleString()}</b></span><span>For sale <b>${it.q.toLocaleString()}</b></span></div>` +
+      `<div class="how">${howHtml(it, meta)}</div></div></li>`;
+  }).join('');
+  const realm = state.snap.realms.join(' / ');
+  setStatus(list.length
+    ? `${realm}: top ${list.length} by estimated profit per item. Updated ${ago(state.snap.u)}.`
+    : `${realm}: nothing matched. Try lowering Min listings or pick another tab above.`);
+}
+
+function refresh() {
+  if (state.mode === 'profit') renderProfit();
+  else render();
+}
+
+function setMode(mode) {
+  state.mode = mode;
+  store.set('ah.tab', mode);
+  document.body.classList.toggle('profit-mode', mode === 'profit');
+  $('listingsPanel').hidden = mode === 'profit';
+  $('profitPanel').hidden = mode !== 'profit';
+  $('tabListings').setAttribute('aria-selected', String(mode === 'listings'));
+  $('tabProfit').setAttribute('aria-selected', String(mode === 'profit'));
+  refresh();
+}
+
+$('tabListings').addEventListener('click', () => setMode('listings'));
+$('tabProfit').addEventListener('click', () => setMode('profit'));
+document.querySelectorAll('.chip').forEach(chip => chip.addEventListener('click', () => {
+  state.method = chip.dataset.method;
+  store.set('ah.method', state.method);
+  document.querySelectorAll('.chip').forEach(c => c.setAttribute('aria-pressed', String(c === chip)));
+  renderProfit();
+}));
+let listingsTimer = null;
+$('minListings').addEventListener('input', () => {
+  clearTimeout(listingsTimer);
+  listingsTimer = setTimeout(renderProfit, 200);
+});
+
 $('game').addEventListener('change', () => onGame(false));
 $('region').addEventListener('change', () => onRegion(false));
 $('realm').addEventListener('change', () => {
@@ -660,6 +859,12 @@ $('chart').addEventListener('touchmove', chartHover, { passive: true });
 $('chart').addEventListener('mouseleave', () => { if (chartPoints.length) drawChart(); });
 window.addEventListener('resize', () => { if ($('detail').open) drawChart(); });
 
+const savedMethod = store.get('ah.method');
+if (['craft', 'gather', 'dungeon', 'other'].includes(savedMethod)) {
+  state.method = savedMethod;
+  document.querySelectorAll('.chip').forEach(c => c.setAttribute('aria-pressed', String(c.dataset.method === savedMethod)));
+}
+if (store.get('ah.tab') === 'profit') setMode('profit');
 init();
 </script>
 </body>

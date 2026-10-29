@@ -15,13 +15,16 @@ const CONCURRENCY = Number(env.CONCURRENCY || 8);
 const ITEM_LOOKUPS = Number(env.ITEM_LOOKUPS || 400);
 const HISTORY_TOP = Number(env.HISTORY_TOP || 300);
 const DAY = 86400;
+const RECIPE_TIERS = Number(env.RECIPE_TIERS || 3);
+const RECIPE_FETCH_CAP = Number(env.RECIPE_FETCH_CAP || 6000);
+const SOURCES_REFRESH_HOURS = Number(env.SOURCES_REFRESH_HOURS || 72);
 const KNOWN_REGIONS = ['us', 'eu', 'kr', 'tw'];
 const TIME = { SHORT: 'S', MEDIUM: 'M', LONG: 'L', VERY_LONG: 'V' };
 
 const GAMES = {
-  retail: { label: 'Retail', dynamic: 'dynamic-{r}', static: 'static-{r}', commodities: true, houses: false },
-  classic: { label: 'Classic (Progression)', dynamic: 'dynamic-classic-{r}', static: 'static-classic-{r}', commodities: false, houses: true },
-  classic1x: { label: 'Classic Era', dynamic: 'dynamic-classic1x-{r}', static: 'static-classic1x-{r}', commodities: false, houses: true }
+  retail: { label: 'Retail', dynamic: 'dynamic-{r}', static: 'static-{r}', commodities: true, houses: false, journal: true },
+  classic: { label: 'Classic (Progression)', dynamic: 'dynamic-classic-{r}', static: 'static-classic-{r}', commodities: false, houses: true, journal: false },
+  classic1x: { label: 'Classic Era', dynamic: 'dynamic-classic1x-{r}', static: 'static-classic1x-{r}', commodities: false, houses: true, journal: false }
 };
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -226,28 +229,171 @@ async function storeSnapshot(game, region, entry, auctions, seen, now) {
   await writeGz(path.join(dir, 'history.json.gz'), updateHistory(prev, items, now));
 }
 
-async function resolveItemNames(game, region, base, seen) {
-  const file = path.join(OUT_DIR, game.id, 'items.json');
-  const names = (await readJson(file)) || {};
+async function loadMeta(game) {
+  const dir = path.join(OUT_DIR, game.id);
+  return {
+    names: (await readJson(path.join(dir, 'items.json'))) || {},
+    cats: (await readJson(path.join(dir, 'cats.json'))) || {}
+  };
+}
+
+async function saveMeta(game, meta) {
+  const dir = path.join(OUT_DIR, game.id);
+  await writeJson(path.join(dir, 'items.json'), meta.names);
+  await writeJson(path.join(dir, 'cats.json'), meta.cats);
+}
+
+function categoryOf(item) {
+  const cls = item.item_class && item.item_class.id;
+  const sub = localName(item.item_subclass && item.item_subclass.name).toLowerCase();
+  if (cls !== 7) return 'other';
+  if (sub.includes('herb')) return 'herb';
+  if (sub.includes('metal')) return 'ore';
+  if (sub.includes('leather')) return 'leather';
+  if (sub.includes('cloth')) return 'cloth';
+  return 'other';
+}
+
+async function resolveItemNames(game, region, base, seen, meta) {
   const ns = game.static.replace('{r}', region);
   const missing = [...seen.entries()]
-    .filter(([id]) => !(id in names))
+    .filter(([id]) => !(id in meta.names) || !(id in meta.cats))
     .sort((a, b) => b[1] - a[1])
     .slice(0, ITEM_LOOKUPS)
     .map(([id]) => id);
   await pool(missing, CONCURRENCY, async id => {
     try {
       const item = await getJson(`${base}/data/wow/item/${id}?namespace=${ns}&locale=en_US`);
-      names[id] = item && item.name ? localName(item.name) : null;
+      if (item) {
+        if (!meta.names[id] && item.name) meta.names[id] = localName(item.name);
+        else if (!(id in meta.names)) meta.names[id] = null;
+        meta.cats[id] = categoryOf(item);
+      } else {
+        if (!(id in meta.names)) meta.names[id] = null;
+        meta.cats[id] = null;
+      }
     } catch (err) {
       log('item lookup failed', id, err.message);
     }
   });
-  await writeJson(file, names);
-  log(game.id, region, 'item names looked up:', missing.length);
+  log(game.id, region, 'item details looked up:', missing.length);
 }
 
-async function collectRegion(game, region, now) {
+async function buildRecipes(game, base, ns, meta, prev) {
+  const index = await getJson(`${base}/data/wow/profession/index?namespace=${ns}&locale=en_US`);
+  if (!index || !Array.isArray(index.professions)) return null;
+  const recipes = prev;
+  const wanted = [];
+  for (const prof of index.professions) {
+    const detail = await getJson(`${base}/data/wow/profession/${prof.id}?namespace=${ns}&locale=en_US`);
+    const tiers = ((detail && detail.skill_tiers) || []).slice().sort((a, b) => b.id - a.id).slice(0, RECIPE_TIERS);
+    for (const tier of tiers) {
+      const td = await getJson(`${base}/data/wow/profession/${prof.id}/skill-tier/${tier.id}?namespace=${ns}&locale=en_US`);
+      for (const cat of (td && td.categories) || []) {
+        for (const r of cat.recipes || []) wanted.push({ id: r.id, p: localName(prof.name), t: localName(tier.name) });
+      }
+    }
+  }
+  const todo = wanted.filter(w => !(w.id in recipes));
+  const batch = todo.slice(0, RECIPE_FETCH_CAP);
+  log(game.id, 'recipes listed:', wanted.length, 'to fetch now:', batch.length);
+  await pool(batch, CONCURRENCY, async w => {
+    try {
+      const r = await getJson(`${base}/data/wow/recipe/${w.id}?namespace=${ns}&locale=en_US`);
+      const crafted = r && (r.crafted_item || r.alliance_crafted_item);
+      if (!crafted || !crafted.id) {
+        recipes[w.id] = null;
+        return;
+      }
+      const cq = r.crafted_quantity || {};
+      const reagents = (r.reagents || []).filter(x => x.reagent && x.reagent.id);
+      if (!meta.names[crafted.id] && crafted.name) meta.names[crafted.id] = localName(crafted.name);
+      for (const x of reagents) {
+        if (!meta.names[x.reagent.id] && x.reagent.name) meta.names[x.reagent.id] = localName(x.reagent.name);
+      }
+      recipes[w.id] = {
+        p: w.p,
+        t: w.t,
+        i: crafted.id,
+        q: cq.value || cq.minimum || 1,
+        r: reagents.map(x => [x.reagent.id, x.quantity || 1])
+      };
+    } catch (err) {
+      log(game.id, 'recipe failed', w.id, err.message);
+    }
+  });
+  return { recipes, pending: todo.length - batch.length };
+}
+
+async function buildDrops(game, base, ns, meta) {
+  const index = await getJson(`${base}/data/wow/journal-expansion/index?namespace=${ns}&locale=en_US`);
+  if (!index || !Array.isArray(index.tiers)) return null;
+  const instances = [];
+  for (const tier of index.tiers) {
+    const t = await getJson(`${base}/data/wow/journal-expansion/${tier.id}?namespace=${ns}&locale=en_US`);
+    for (const inst of [...((t && t.dungeons) || []), ...((t && t.raids) || [])]) instances.push(inst);
+  }
+  const encounters = [];
+  await pool(instances, CONCURRENCY, async inst => {
+    try {
+      const d = await getJson(`${base}/data/wow/journal-instance/${inst.id}?namespace=${ns}&locale=en_US`);
+      for (const e of (d && d.encounters) || []) {
+        encounters.push({ id: e.id, instance: localName(inst.name), encounter: localName(e.name) });
+      }
+    } catch (err) {
+      log(game.id, 'instance failed', inst.id, err.message);
+    }
+  });
+  log(game.id, 'journal instances:', instances.length, 'encounters:', encounters.length);
+  const drops = {};
+  await pool(encounters, CONCURRENCY, async e => {
+    try {
+      const d = await getJson(`${base}/data/wow/journal-encounter/${e.id}?namespace=${ns}&locale=en_US`);
+      for (const entry of (d && d.items) || []) {
+        const item = entry.item;
+        if (!item || !item.id) continue;
+        if (!meta.names[item.id] && item.name) meta.names[item.id] = localName(item.name);
+        const list = drops[item.id] || (drops[item.id] = []);
+        if (list.length < 4 && !list.some(x => x[0] === e.instance && x[1] === e.encounter)) {
+          list.push([e.instance, e.encounter]);
+        }
+      }
+    } catch (err) {
+      log(game.id, 'encounter failed', e.id, err.message);
+    }
+  });
+  return drops;
+}
+
+async function buildSources(game, meta) {
+  const file = path.join(OUT_DIR, game.id, 'sources.json.gz');
+  const prev = await readGz(file);
+  const nowSec = Math.floor(Date.now() / 1000);
+  const ageHours = prev && prev.t ? (nowSec - prev.t) / 3600 : Infinity;
+  if (prev && ageHours < SOURCES_REFRESH_HOURS && !prev.pending) {
+    log(game.id, 'sources are fresh, skipping');
+    return;
+  }
+  const region = REGIONS[0];
+  const base = apiBase(region);
+  const ns = game.static.replace('{r}', region);
+  const built = await buildRecipes(game, base, ns, meta, prev && prev.recipes ? prev.recipes : {});
+  const drops = game.journal ? await buildDrops(game, base, ns, meta) : null;
+  if (!built && !drops && !prev) {
+    log(game.id, 'no recipe or journal data available');
+    return;
+  }
+  await writeGz(file, {
+    u: new Date(nowSec * 1000).toISOString(),
+    t: nowSec,
+    pending: built ? built.pending : 0,
+    recipes: built ? built.recipes : (prev && prev.recipes) || {},
+    drops: drops || (prev && prev.drops) || {}
+  });
+  log(game.id, 'sources stored. recipes:', built ? Object.keys(built.recipes).length : 0, 'drops:', drops ? Object.keys(drops).length : 0);
+}
+
+async function collectRegion(game, region, now, meta) {
   const base = apiBase(region);
   const ns = game.dynamic.replace('{r}', region);
   const index = await getJson(`${base}/data/wow/connected-realm/index?namespace=${ns}&locale=en_US`);
@@ -298,7 +444,7 @@ async function collectRegion(game, region, now) {
     u: new Date(now * 1000).toISOString(),
     realms
   });
-  await resolveItemNames(game, region, base, seen);
+  await resolveItemNames(game, region, base, seen, meta);
   log(game.id, region, 'stored realms:', realms.length);
   return true;
 }
@@ -318,9 +464,16 @@ async function main() {
       continue;
     }
     const game = { id: gid, ...base };
+    const meta = await loadMeta(game);
+    try {
+      await buildSources(game, meta);
+    } catch (err) {
+      log(gid, 'sources failed', err.message);
+    }
+    await saveMeta(game, meta);
     for (const region of REGIONS) {
       try {
-        if (await collectRegion(game, region, now)) {
+        if (await collectRegion(game, region, now, meta)) {
           successes++;
           if (!table.has(gid)) table.set(gid, { id: gid, label: game.label, regions: new Set() });
           table.get(gid).regions.add(region);
@@ -328,6 +481,7 @@ async function main() {
       } catch (err) {
         log(gid, region, 'failed', err.message);
       }
+      await saveMeta(game, meta);
     }
   }
 

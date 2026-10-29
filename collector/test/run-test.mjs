@@ -74,11 +74,32 @@ try {
   assert.equal(names['100'], 'Test Item 100');
   assert.equal(names['139'], null);
 
+  const cats = JSON.parse(readFileSync(path.join(out, 'retail', 'cats.json'), 'utf8'));
+  assert.equal(cats['100'], 'herb');
+  assert.equal(cats['101'], 'ore');
+  assert.equal(cats['102'], 'leather');
+  assert.equal(cats['103'], 'cloth');
+  assert.equal(cats['104'], 'other');
+  assert.equal(cats['139'], null);
+
+  const sources = readGz(path.join(out, 'retail', 'sources.json.gz'));
+  assert.equal(Object.keys(sources.recipes).length, 24);
+  assert.equal(Object.values(sources.recipes).filter(Boolean).length, 18);
+  assert.ok(!('171101' in sources.recipes));
+  const recipe = sources.recipes['171131'];
+  assert.equal(recipe.p, 'Alchemy');
+  assert.ok(recipe.i >= 120 && recipe.i <= 134 && recipe.r.length === 2 && recipe.q >= 1);
+  assert.deepEqual(Object.keys(sources.drops).sort(), ['125', '126', '130', '131']);
+  assert.equal(sources.drops['125'].length, 2);
+  assert.equal(sources.pending, 0);
+  assert.ok(!existsSync(path.join(out, 'classic', 'sources.json.gz')));
+
   const h1 = readGz(path.join(out, 'retail', 'us', '11', 'history.json.gz'));
   const k = Object.keys(h1.h)[0];
   assert.equal(h1.h[k].length, 1);
 
-  await run({ GAMES: 'retail', MAX_REALMS: '1' });
+  const second = await run({ GAMES: 'retail', MAX_REALMS: '1' });
+  assert.ok(second.includes('sources are fresh'));
   const h2 = readGz(path.join(out, 'retail', 'us', '11', 'history.json.gz'));
   assert.equal(h2.h[k].length, 2);
 
