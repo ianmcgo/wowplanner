@@ -1,5 +1,5 @@
 {
- "started": "2026-10-29T15:24:43.291Z",
+ "started": "2026-10-29T15:25:56.653Z",
  "steps": [
   {
    "name": "products",
@@ -16,61 +16,6 @@
    "name": "build",
    "product": "wow_classic",
    "version": "5.5.4.70631"
-  },
-  {
-   "name": "table ItemSparse",
-   "rows": 88766,
-   "columns": [
-    "ID",
-    "Description_lang",
-    "Display3_lang",
-    "Display2_lang",
-    "Display1_lang",
-    "Display_lang",
-    "DmgVariance",
-    "DurationInInventory",
-    "QualityModifier",
-    "BagFamily",
-    "StartQuestID",
-    "ItemRange",
-    "StatPercentageOfSocket_0",
-    "StatPercentageOfSocket_1",
-    "StatPercentageOfSocket_2",
-    "StatPercentageOfSocket_3",
-    "StatPercentageOfSocket_4",
-    "StatPercentageOfSocket_5",
-    "StatPercentageOfSocket_6",
-    "StatPercentageOfSocket_7",
-    "StatPercentageOfSocket_8",
-    "StatPercentageOfSocket_9",
-    "StatPercentEditor_0",
-    "StatPercentEditor_1",
-    "StatPercentEditor_2",
-    "StatPercentEditor_3",
-    "StatPercentEditor_4",
-    "StatPercentEditor_5",
-    "StatPercentEditor_6",
-    "StatPercentEditor_7"
-   ]
-  },
-  {
-   "name": "table SkillLine",
-   "rows": 174,
-   "columns": [
-    "DisplayName_lang",
-    "AlternateVerb_lang",
-    "Description_lang",
-    "HordeDisplayName_lang",
-    "NeutralDisplayName",
-    "ID",
-    "CategoryID",
-    "SpellIconFileID",
-    "CanLink",
-    "ParentSkillLineID",
-    "ParentTierIndex",
-    "Flags",
-    "SpellBookSpellID"
-   ]
   },
   {
    "name": "table SpellName",
@@ -102,6 +47,25 @@
     "Field_5_5_4_67090_014_1",
     "RaceMask_0",
     "RaceMask_1"
+   ]
+  },
+  {
+   "name": "table SkillLine",
+   "rows": 174,
+   "columns": [
+    "DisplayName_lang",
+    "AlternateVerb_lang",
+    "Description_lang",
+    "HordeDisplayName_lang",
+    "NeutralDisplayName",
+    "ID",
+    "CategoryID",
+    "SpellIconFileID",
+    "CanLink",
+    "ParentSkillLineID",
+    "ParentTierIndex",
+    "Flags",
+    "SpellBookSpellID"
    ]
   },
   {
@@ -165,6 +129,42 @@
    ]
   },
   {
+   "name": "table ItemSparse",
+   "rows": 88766,
+   "columns": [
+    "ID",
+    "Description_lang",
+    "Display3_lang",
+    "Display2_lang",
+    "Display1_lang",
+    "Display_lang",
+    "DmgVariance",
+    "DurationInInventory",
+    "QualityModifier",
+    "BagFamily",
+    "StartQuestID",
+    "ItemRange",
+    "StatPercentageOfSocket_0",
+    "StatPercentageOfSocket_1",
+    "StatPercentageOfSocket_2",
+    "StatPercentageOfSocket_3",
+    "StatPercentageOfSocket_4",
+    "StatPercentageOfSocket_5",
+    "StatPercentageOfSocket_6",
+    "StatPercentageOfSocket_7",
+    "StatPercentageOfSocket_8",
+    "StatPercentageOfSocket_9",
+    "StatPercentEditor_0",
+    "StatPercentEditor_1",
+    "StatPercentEditor_2",
+    "StatPercentEditor_3",
+    "StatPercentEditor_4",
+    "StatPercentEditor_5",
+    "StatPercentEditor_6",
+    "StatPercentEditor_7"
+   ]
+  },
+  {
    "name": "profession spells",
    "count": 5501
   },
@@ -175,6 +175,22 @@
   {
    "name": "spells with reagents",
    "count": 4706
+  },
+  {
+   "name": "price columns",
+   "columns": [
+    "Stackable",
+    "SellPrice",
+    "BuyPrice",
+    "VendorStackCount",
+    "PriceVariance",
+    "PriceRandomValue"
+   ]
+  },
+  {
+   "name": "vendor prices",
+   "wanted": 12998,
+   "priced": 9603
   },
   {
    "name": "done",
@@ -195,5 +211,5 @@
   }
  ],
  "ok": true,
- "finished": "2026-10-29T15:24:55.493Z"
+ "finished": "2026-10-29T15:26:12.959Z"
 }
