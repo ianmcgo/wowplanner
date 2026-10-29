@@ -1,0 +1,145 @@
+{
+ "zones": {
+  "4720": {
+   "w": 1000,
+   "h": 667,
+   "ui": 174,
+   "hit": 1.0,
+   "kb": 36
+  },
+  "4755": {
+   "w": 1000,
+   "h": 667,
+   "ui": 202,
+   "hit": 1.0,
+   "kb": 25
+  },
+  "5736": {
+   "w": 1000,
+   "h": 666,
+   "ui": 378,
+   "hit": 1.0,
+   "kb": 62
+  },
+  "5861": {
+   "w": 1000,
+   "h": 667,
+   "ui": 407,
+   "hit": 1.0,
+   "kb": 17
+  },
+  "2597": {
+   "w": 1000,
+   "h": 667,
+   "ui": 91,
+   "hit": 1.0,
+   "kb": 30
+  },
+  "2437": {
+   "w": 1000,
+   "h": 667,
+   "ui": 213,
+   "hit": 1.0,
+   "kb": 12
+  },
+  "6109": {
+   "w": 1000,
+   "h": 667,
+   "ui": 435,
+   "hit": 1.0,
+   "kb": 17
+  }
+ },
+ "instances": {
+  "Ragefire Chasm": {
+   "img": "iragefirechasm",
+   "w": 842,
+   "h": 1000,
+   "kb": 21
+  },
+  "Wailing Caverns": {
+   "img": "iwailingcaverns",
+   "w": 1000,
+   "h": 850,
+   "kb": 19
+  },
+  "Shadowfang Keep": {
+   "img": "ishadowfangkeep",
+   "w": 1000,
+   "h": 757,
+   "kb": 20
+  },
+  "The Stockade": {
+   "img": "ithestockade",
+   "w": 1000,
+   "h": 681,
+   "kb": 6
+  },
+  "Blackfathom Deeps": {
+   "img": "iblackfathomdeeps",
+   "w": 1000,
+   "h": 897,
+   "kb": 12
+  },
+  "Razorfen Kraul": {
+   "img": "irazorfenkraul",
+   "w": 1000,
+   "h": 666,
+   "kb": 42
+  },
+  "Uldaman": {
+   "img": "iuldaman",
+   "w": 965,
+   "h": 1000,
+   "kb": 28
+  },
+  "Maraudon": {
+   "img": "imaraudon",
+   "w": 830,
+   "h": 1000,
+   "kb": 26
+  },
+  "Blackrock Depths": {
+   "img": "iblackrockdepths",
+   "w": 907,
+   "h": 1000,
+   "kb": 32
+  },
+  "Blackrock Spire": {
+   "img": "iblackrockspire",
+   "w": 1000,
+   "h": 882,
+   "kb": 26
+  },
+  "Stratholme": {
+   "img": "istratholme",
+   "w": 1000,
+   "h": 786,
+   "kb": 31
+  },
+  "Molten Core": {
+   "img": "imoltencore",
+   "w": 1000,
+   "h": 827,
+   "kb": 29
+  },
+  "Zul'Gurub": {
+   "img": "izulgurub",
+   "w": 1000,
+   "h": 667,
+   "kb": 70
+  },
+  "Scarlet Halls": {
+   "img": "iscarlethalls",
+   "w": 901,
+   "h": 1000,
+   "kb": 9
+  },
+  "Scarlet Monastery": {
+   "img": "iscarletmonastery",
+   "w": 1000,
+   "h": 949,
+   "kb": 18
+  }
+ }
+}

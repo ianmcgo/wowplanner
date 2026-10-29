@@ -208,7 +208,7 @@ These were built from documentation and forum reports, then tested against a moc
 ## Costs and limits
 - GitHub Actions is free for public repos. Private repos have monthly minute limits, and an hourly job of up to 55 minutes would exceed the free allowance, so keep the repo public or reduce the schedule.
 - Blizzard allows 36,000 requests per hour per client. A full run of both regions uses roughly a few hundred auction requests plus item lookups, well under that.
-- Use only your own artwork and names in the app. Do not add Blizzard logos or art.
+- Use only your own artwork and names in the app. Do not add Blizzard logos. The one exception is the zone and dungeon map images in `static/maps/`, exported by the site owner from their own game client with wow.export (see Zone maps).
 
 ## MoP Classic item sources and Professions tab
 - `static/mop-classic-sources.json` is built from Napalmsteak's WoW Classic Item Caches (`MoP Classic Cache.json`), used with the author's permission and credited in the page footer.
@@ -228,7 +228,7 @@ These were built from documentation and forum reports, then tested against a moc
 - Piece format: `{ npcs: { id: [name, title, faction "A"/"H"/"AH", minLevel, maxLevel, { areaId: [[x, y]] }] }, objects: { id: [name, { areaId: [[x, y]] }] }, items: { id: { v: [vendor npc ids], d: [dropping npc ids], dn, dc, ds, o: [object ids] } } }`.
 - Limits per item: up to 8 vendors, 25 droppers and 10 objects. Per NPC or object: up to 3 zones and 30 points per zone. Coordinates are zone map percentages.
 - Zone names come from the enum constant names (for example `ELWYNN_FOREST` becomes "Elwynn Forest"). Six zones have no name and show as "Zone 1234".
-- The item popup has a "Where to find it" section: vendors with their title and faction, droppers with level range, and objects such as herb nodes or chests. Selecting one draws its spawn points on a plain zone grid (no game map art) with the coordinates listed below, plus a link to the full map on Wowhead.
+- The item popup has a "Where to find it" section: vendors with their title and faction, droppers with level range, and objects such as herb nodes or chests. Selecting one draws its spawn points on the zone's map art when `static/maps/` has it, otherwise on a plain zone grid, with the coordinates listed below, plus a link to the full map on Wowhead.
 
 ### Drop chances
 - Drop percentages come from QuestieDB's `support/DropTables/mopItemDrops.lua` (`wowheadData`), which the Questie team built from Wowhead's player-collected loot statistics. It is part of QuestieDB and covered by the same GPLv3 terms.
@@ -317,7 +317,9 @@ These were built from documentation and forum reports, then tested against a moc
 - Caveat: the MaNGOS Four vendor lists predate MoP Classic's current PvP seasons, so this season's honor gear is missing and the list leans on older honor items. Treat it as a guide to old honor vendors until better vendor data is found.
 
 ## Item popup layout
-- The popup is up to 960 pixels wide (full width minus a margin on phones). While it is open the page behind it does not scroll: the `modal-open` class on `<html>` (plus `:has(dialog[open])`) sets `overflow: hidden`, and the popup body uses `overscroll-behavior: contain` so scrolling past its end doesn't move the page.
+- The popup is up to 1,280 pixels wide and laid out in two columns: the tooltip and stat tiles side by side at the top, then How to get it, Crafted by, Cheapest listings and the price history chart on the left, and Where to find it (sources and the spawn map) in a 320 to 440 pixel column on the right that stays in view while the left side scrolls. Items with no locations use the full width. Under 860 pixels wide everything stacks in one column.
+- Text inside the popup is about 0.86rem, with smaller section labels, single-line stat tiles, tight table rows, compact source rows and a 130 pixel chart, so most items fit without scrolling on a laptop screen.
+- Earlier notes: the popup was up to 960 pixels wide (full width minus a margin on phones). While it is open the page behind it does not scroll: the `modal-open` class on `<html>` (plus `:has(dialog[open])`) sets `overflow: hidden`, and the popup body uses `overscroll-behavior: contain` so scrolling past its end doesn't move the page.
 - "Where to find it" groups (gathered from, mined from, sold by, dropped by, found in chests and objects) and the spawn location map are each foldable. The first group and the map start open; picking a source opens the map if it was folded.
 
 ## Tooltip and icon backfill
@@ -345,3 +347,12 @@ These were built from documentation and forum reports, then tested against a moc
 
 ## Hourly backup trigger
 - GitHub had not started a single scheduled run of "Collect auction data" in the first hours after the cron was added (scheduled runs can be delayed or skipped on new or busy repositories). `.github/workflows/hourly-kick.yml` keeps updates hourly anyway: each time a collection finishes, it waits until the next :17, checks that no collection started in the last 30 minutes (so it stays quiet once the cron works), and starts one with `gh workflow run`. A `workflow_dispatch` from the workflow token is allowed to start another workflow. Only one waiting kick exists at a time (`cancel-in-progress`). The wait runs on GitHub's runners, which cost nothing for a public repository.
+## Zone maps (wow.export)
+- `static/maps/` holds map images exported by the site owner from their own MoP Classic client with wow.export (`C:\Users\maund\wow.export\maps`): minimap tiles (`minimap/mapX_Y.png`, 512 pixels per 533.33-yard tile) for outdoor maps and single WMO minimaps (`*_wmo_minimap.png` plus a JSON with world corners) for indoor dungeons.
+- Alignment comes from Blizzard's `UiMapAssignment`, `UiMap`, `Map` and `UiMapGroupMember` tables, downloaded from wago.tools by the "Build map bounds" workflow (`tools/build-map-bounds.mjs`, run by hand or when either file changes) into `static/map-bounds.json`. Each UI map's region gives the world rectangle that zone percentages 0 to 100 cover: x runs from the region's max world Y to min Y, y from max world X to min X.
+- `python3 tools/build-zone-maps.py <wow.export maps folder> static/maps` stitches tiles (tile column = 32 - worldY / 533.33, row = 32 - worldX / 533.33) or rotates the WMO image (its width runs along world X, north on the left) into that rectangle, 1,000 pixels wide, saved as WebP on the panel color, and writes `static/maps/index.json` (`{ zones: { areaId: { w, h, ui, hit } }, instances: { name: { img, w, h } } }`).
+- A zone image is kept only when at least 80% of QuestieDB's spawn points for that area land on drawn map pixels. For instances with several floors the floor with the most hits wins. Current zone art: The Lost Isles, Gilneas City, The Wandering Isle, Darkmoon Island, Alterac Valley, Ragefire Chasm and Scarlet Monastery. Gilneas (the export is the older map 638, which doesn't cover the zone), Kezan (not in the export) and Scarlet Halls (points off the building) failed the check.
+- Instance maps (the whole instance, trimmed to what is drawn, up to 1,000 pixels) show as a "Map of ..." fold under each Dungeon drops and Raid drops card: Ragefire Chasm, Wailing Caverns, Shadowfang Keep, The Stockade, Blackfathom Deeps, Razorfen Kraul, Uldaman, Maraudon, Blackrock Depths, Blackrock Spire, Stratholme, Molten Core, Zul'Gurub, Scarlet Halls and Scarlet Monastery. The Deadmines export only has the surface above the mine, so it is left out.
+- Not used: the phased maps (Redridge, Uldum, Twilight Highlands, Hyjal, Desolace, Theramore, turtle ship, gunships), the Northrend phase maps 2565 and 2567, battlegrounds with no spawn data, and Scholomance OLD and Scarlet Monastery of Old, which are not the MoP versions.
+- To add more: export more maps into the same folder (the big continents, Eastern Kingdoms and Kalimdor, would cover most zones), add the area id, UI map id and folder to `ZONES` or the instance name and folder to `INSTANCES` in the script, and rerun it.
+- The spawn map SVG uses the image's own aspect ratio, draws markers with a white outline and puts the zone name on a dark label. Zones without art keep the plain grid.

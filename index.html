@@ -139,7 +139,7 @@ dialog {
   border: 1px solid var(--line);
   border-radius: 14px;
   padding: 0;
-  width: min(960px, calc(100vw - 24px));
+  width: min(1280px, calc(100vw - 24px));
   max-height: calc(100dvh - 24px);
   overscroll-behavior: contain;
 }
@@ -176,10 +176,11 @@ canvas { width: 100%; height: 220px; display: block; background: var(--panel-2);
 .check-row input { width: 18px; height: 18px; accent-color: var(--accent); }
 .pair input { min-width: 0; }
 thead th.plain { padding: 10px 12px; }
-.zmap { width: 100%; max-width: 560px; display: block; background: #182031; border: 1px solid var(--line); border-radius: 10px; margin: 6px 0 4px; }
+.zmap { width: 100%; display: block; background: #182031; border: 1px solid var(--line); border-radius: 10px; margin: 6px 0 4px; }
 .zmap .gl { stroke: rgba(255, 255, 255, .07); stroke-width: .15; }
 .zmap .mk { fill: var(--accent); stroke: #0b0d12; stroke-width: .35; }
 .zmap .zl { fill: var(--dim); font-size: 3px; font-family: system-ui, sans-serif; }
+.zmap.art .zl { fill: #e6e9ef; }
 .loc-list { list-style: none; margin: 4px 0 8px; padding: 0; display: grid; gap: 6px; }
 .loc-list button { all: unset; box-sizing: border-box; display: block; width: 100%; cursor: pointer; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel-2); }
 .loc-list button[aria-pressed="true"] { border-color: var(--accent); }
@@ -198,6 +199,53 @@ thead th.plain { padding: 10px 12px; }
 .mats tfoot td { font-weight: 600; border-bottom: 0; }
 .craft-box { background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; margin: 6px 0 10px; }
 #dlgLoc a { color: var(--accent-2); font-size: .9rem; }
+#detail .dlg-head { padding: 12px 18px 8px; border-bottom: 1px solid var(--line); align-items: center; }
+#detail .dlg-head > div { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; }
+#detail .dlg-head h2 { font-size: 1.05rem; }
+#detail .dlg-head a { font-size: .8rem; }
+#detail #dlgClose { padding: 5px 12px; font-size: .85rem; }
+#detail .dlg-body { padding: 12px 18px 16px; font-size: .86rem; line-height: 1.4; }
+.dlg-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(320px, 440px); gap: 18px; align-items: start; }
+.dlg-grid:has(> #dlgLocWrap[hidden]) { grid-template-columns: minmax(0, 1fr); }
+.dlg-main { display: grid; gap: 12px; min-width: 0; }
+.dlg-top { display: grid; grid-template-columns: minmax(220px, 300px) minmax(0, 1fr); gap: 12px; align-items: start; }
+.dlg-top:has(> #dlgTip[hidden]) { grid-template-columns: minmax(0, 1fr); }
+.dlg-side { position: sticky; top: 0; min-width: 0; }
+.dlg-sec { min-width: 0; }
+#detail h3 { font-size: .7rem; margin: 0 0 5px; padding-bottom: 4px; border-bottom: 1px solid var(--line); }
+#detail .wtt { font-size: .8rem; padding: 8px 10px; margin: 0; line-height: 1.35; }
+#detail .stats { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; }
+#detail .stat { flex: 1 1 130px; max-width: 240px; padding: 5px 8px; border-radius: 7px; font-size: .84rem; }
+#detail .stat b { font-size: .64rem; }
+#detail .mini th, #detail .mini td { padding: 3px 6px; font-size: .82rem; }
+#detail .mini thead th { font-size: .64rem; padding: 3px 6px; }
+#detail canvas { height: 130px; border-radius: 7px; }
+#detail .tip { font-size: .78rem; margin-top: 3px; }
+#detail .craft-box { padding: 6px 9px; margin: 4px 0 6px; border-radius: 7px; }
+#detail .mats td, #detail .mats th { padding: 2px 5px; font-size: .82rem; }
+#detail .loc-h { margin: 6px 0 3px; font-size: .68rem; }
+#detail .loc-list { gap: 3px; margin: 2px 0 6px; }
+#detail .loc-list button { padding: 4px 8px; border-radius: 6px; font-size: .82rem; line-height: 1.3; }
+#detail .loc-list .sub { font-size: .76rem; }
+#detail .fac { font-size: .64rem; padding: 0 5px; margin-left: 4px; }
+#detail .pct { font-size: .76rem; }
+#detail .rate-src { font-size: .74rem; margin: 0 0 4px; }
+#detail .coords { font-size: .74rem; }
+#detail #dlgLoc a { font-size: .78rem; }
+#detail .chip { font-size: .76rem; padding: 3px 9px; }
+#detail .zmap { margin: 4px 0 3px; border-radius: 7px; }
+#detail .how p { margin: 0 0 4px; }
+#detail .how ul { margin: 2px 0 4px 16px; }
+#detail .how a { font-size: .8rem; }
+.zmap .zbg { fill: rgba(11, 13, 18, .7); }
+.zmap.art .mk { stroke: #fff; stroke-width: .3; }
+.imap { margin-top: 8px; }
+.imap summary { cursor: pointer; color: var(--dim); font-size: .82rem; }
+.imap img { display: block; width: 100%; max-width: 640px; height: auto; margin-top: 6px; border: 1px solid var(--line); border-radius: 8px; background: #182031; }
+@media (max-width: 860px) {
+  .dlg-grid, .dlg-top { grid-template-columns: minmax(0, 1fr); }
+  .dlg-side { position: static; }
+}
 .linkish { all: unset; cursor: pointer; color: inherit; }
 .linkish:hover, .linkish:focus-visible { color: var(--accent-2); text-decoration: underline; }
 .prof { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; margin-bottom: 10px; }
@@ -545,26 +593,38 @@ footer p { margin: 4px 0; }
     <button id="dlgClose" type="button">Close</button>
   </div>
   <div class="dlg-body">
-    <div class="wtt" id="dlgTip" hidden></div>
-    <div class="stats" id="dlgStats"></div>
-    <h3>How to get it</h3>
-    <div class="how" id="dlgHow"></div>
-    <div id="dlgCraftWrap" hidden>
-      <h3>Crafted by</h3>
-      <div id="dlgCraft"></div>
+    <div class="dlg-grid">
+      <div class="dlg-main">
+        <div class="dlg-top">
+          <div class="wtt" id="dlgTip" hidden></div>
+          <div class="stats" id="dlgStats"></div>
+        </div>
+        <section class="dlg-sec">
+          <h3>How to get it</h3>
+          <div class="how" id="dlgHow"></div>
+        </section>
+        <section class="dlg-sec" id="dlgCraftWrap" hidden>
+          <h3>Crafted by</h3>
+          <div id="dlgCraft"></div>
+        </section>
+        <section class="dlg-sec">
+          <h3>Cheapest listings</h3>
+          <table class="mini" id="listingsTable">
+            <thead><tr><th>Qty</th><th>Each</th><th>Stack total</th><th>Time left</th><th>Faction</th></tr></thead>
+            <tbody id="dlgListings"></tbody>
+          </table>
+        </section>
+        <section class="dlg-sec">
+          <h3>Lowest price history</h3>
+          <canvas id="chart" aria-label="Price history chart"></canvas>
+          <div class="tip" id="chartTip"></div>
+        </section>
+      </div>
+      <section class="dlg-side dlg-sec" id="dlgLocWrap" hidden>
+        <h3>Where to find it</h3>
+        <div id="dlgLoc"></div>
+      </section>
     </div>
-    <div id="dlgLocWrap" hidden>
-      <h3>Where to find it</h3>
-      <div id="dlgLoc"></div>
-    </div>
-    <h3>Cheapest listings</h3>
-    <table class="mini" id="listingsTable">
-      <thead><tr><th>Qty</th><th>Each</th><th>Stack total</th><th>Time left</th><th>Faction</th></tr></thead>
-      <tbody id="dlgListings"></tbody>
-    </table>
-    <h3>Lowest price history</h3>
-    <canvas id="chart" aria-label="Price history chart"></canvas>
-    <div class="tip" id="chartTip"></div>
   </div>
 </dialog>
 
@@ -780,7 +840,24 @@ function factionTag(f) {
   return '<span class="fac">Hostile</span>';
 }
 
-function mapSvg(zone, pts) {
+let mapIndexPromise = null;
+let mapIndex = { zones: {}, instances: {} };
+function ensureMapIndex() {
+  if (!mapIndexPromise) mapIndexPromise = fetchStatic('static/maps/index.json').then(d => {
+    if (d) mapIndex = { zones: d.zones || {}, instances: d.instances || {} };
+    return mapIndex;
+  });
+  return mapIndexPromise;
+}
+
+function mapSvg(zone, pts, area) {
+  const art = mapIndex.zones[String(area)];
+  if (art) {
+    const h = +(100 * art.h / art.w).toFixed(2);
+    const marks = pts.map(([x, y]) => `<circle class="mk" cx="${x}" cy="${(y * h / 100).toFixed(2)}" r="1.1"/>`).join('');
+    const label = esc(zone);
+    return `<svg class="zmap art" viewBox="0 0 100 ${h}" role="img" aria-label="${label}: ${pts.length} location${pts.length === 1 ? '' : 's'}"><image href="static/maps/z${esc(String(area))}.webp" x="0" y="0" width="100" height="${h}" preserveAspectRatio="none"/>${marks}<rect class="zbg" x="1" y="1" width="${(label.length * 1.6 + 3).toFixed(1)}" height="4.6" rx="1"/><text class="zl" x="2.4" y="4.4">${label}</text></svg>`;
+  }
   let grid = '';
   for (let k = 10; k < 100; k += 10) grid += `<line class="gl" x1="${k}" y1="0" x2="${k}" y2="66.7"/>`;
   for (let k = 10; k < 70; k += 10) grid += `<line class="gl" x1="0" y1="${(k * 0.667).toFixed(2)}" x2="100" y2="${(k * 0.667).toFixed(2)}"/>`;
@@ -809,7 +886,7 @@ function renderLocMap() {
     ? `<div class="zone-tabs">${zones.map(z => `<button type="button" class="chip" data-zone="${z}" aria-pressed="${String(String(z) === String(locState.zone))}">${esc(zoneName(z))}</button>`).join('')}</div>`
     : '';
   const coords = pts.slice(0, 6).map(([x, y]) => `${x}, ${y}`).join(' \u00b7 ') + (pts.length > 6 ? ` and ${pts.length - 6} more` : '');
-  $('locMap').innerHTML = `${tabs}${mapSvg(zoneName(locState.zone), pts)}<div class="coords">${esc(zoneName(locState.zone))}: ${esc(coords)}</div>` +
+  $('locMap').innerHTML = `${tabs}${mapSvg(zoneName(locState.zone), pts, locState.zone)}<div class="coords">${esc(zoneName(locState.zone))}: ${esc(coords)}</div>` +
     `<a href="https://www.wowhead.com/${WOWHEAD_PATH[state.game] ?? 'classic/'}${src.kind}=${src.id}" target="_blank" rel="noopener">Open the full map on Wowhead</a>`;
 }
 
@@ -817,7 +894,7 @@ const MINING_NODE = /\b(vein|deposit|lode|seam)\b/i;
 
 async function fillLocations(id) {
   const game = state.game;
-  const [loc, vend] = await Promise.all([ensureLocFor(game, [id]), ensureGold(game)]);
+  const [loc, vend] = await Promise.all([ensureLocFor(game, [id]), ensureGold(game), ensureMapIndex()]);
   if (state.openId !== id || state.game !== game || !$('detail').open) return;
   const entry = loc && loc.items[id];
   if (!entry) {
@@ -2168,6 +2245,12 @@ async function renderHarvest() {
     : `${realm}: no gathered materials are listed on this server's auction house (they trade on the region-wide market, which Blizzard's API returns empty). Ranked by vendor value until that changes.`);
 }
 
+function instMap(name) {
+  const m = mapIndex.instances[name];
+  if (!m) return '';
+  return `<details class="imap"><summary>Map of ${esc(name)}</summary><img loading="lazy" src="static/maps/${esc(m.img)}.webp" width="${m.w}" height="${m.h}" alt="Overhead map of ${esc(name)}"></details>`;
+}
+
 async function renderDrops() {
   if (!state.snap) return;
   const seq = state.seq;
@@ -2178,7 +2261,7 @@ async function renderDrops() {
     $('dropsList').innerHTML = '<div class="empty-note">There is no instance data for this game.</div>';
     return;
   }
-  const [commodities, data] = await Promise.all([loadCommodities(), fetchStatic(INSTANCE_FILES[game])]);
+  const [commodities, data] = await Promise.all([loadCommodities(), fetchStatic(INSTANCE_FILES[game]), ensureMapIndex()]);
   if (seq !== state.seq || state.mode !== type) return;
   const minListings = Math.max(1, parseInt($('dropMinListings').value, 10) || 1);
   const price = new Map(combinedItems(commodities).map(e => [e.i, e]));
@@ -2207,7 +2290,7 @@ async function renderDrops() {
     const body = c.rows.slice(0, 10).map((r, j) => `<tr><td class="rk">${j + 1}</td><td>${iconHtml(r.id)}<button type="button" class="linkish" data-open="${r.id}"${qs(r.id)}>${esc(nameOf(r.id))}</button><div class="mat-line">${r.boss ? esc(r.boss) : 'Unknown source'}</div></td>` +
       `<td>${money(r.m)}</td><td class="hide-sm">${r.n.toLocaleString()}</td><td>${r.chance !== null ? fmtChance(r.chance) + '%' : '<span class="dim">-</span>'}</td><td>${r.ev !== null ? money(Math.round(r.ev)) : '<span class="dim">-</span>'}</td></tr>`).join('');
     return `<details class="prof drop-card"${k < 3 ? ' open' : ''}><summary><span class="rk">${k + 1}</span><span class="pn">${esc(c.name)}</span><span>${esc(EXP_SHORT[c.ex] || c.ex)}</span><span>Best drop <b>${money(c.best)}</b></span><span>Sellable drops <b>${c.rows.length}</b></span>${c.ev ? `<span>Per clear (known chances) <b>${money(Math.round(c.ev))}</b></span>` : ''}</summary>` +
-      `<div class="inner"><table class="craft-table"><thead><tr><th>#</th><th>Item and source</th><th>Lowest price</th><th class="hide-sm">Listings</th><th>Drop chance</th><th>Per kill</th></tr></thead><tbody>${body}</tbody></table></div></details>`;
+      `<div class="inner"><table class="craft-table"><thead><tr><th>#</th><th>Item and source</th><th>Lowest price</th><th class="hide-sm">Listings</th><th>Drop chance</th><th>Per kill</th></tr></thead><tbody>${body}</tbody></table>${instMap(c.name)}</div></details>`;
   }).join('') : `<div class="empty-note">No ${label} drops are listed on this server with that many listings.</div>`;
   const realm = state.snap.realms.join(' / ');
   setStatus(`${realm}: ${cards.length} ${label}${cards.length === 1 ? '' : 's'} with drops listed on the auction house${empty ? `, ${empty} with none listed right now` : ''}. Updated ${ago(state.snap.u)}.`);
