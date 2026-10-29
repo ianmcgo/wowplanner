@@ -64,7 +64,9 @@ try {
   assert.ok(item.q >= item.n && item.m > 0 && item.l.length >= 1 && item.l.length <= 5);
   for (let i = 1; i < item.l.length; i++) assert.ok(item.l[i][1] >= item.l[i - 1][1]);
 
-  const classicLatest = readGz(path.join(out, 'classic', 'us', '12', 'latest.json.gz'));
+  const classicRealms = JSON.parse(readFileSync(path.join(out, 'classic', 'us', 'realms.json'), 'utf8'));
+  assert.equal(classicRealms.realms[0].id, 'commodities');
+  const classicLatest = readGz(path.join(out, 'classic1x', 'us', '12', 'latest.json.gz'));
   const houses = new Set(classicLatest.items.flatMap(e => e.l.map(l => l[3])));
   assert.ok(houses.has('alliance') && houses.has('horde'));
 

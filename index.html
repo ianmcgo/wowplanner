@@ -674,12 +674,11 @@ function drawChart(hi) {
 function openDetail(id) {
   const e = state.snap.items.find(x => x.i === id);
   if (!e) return;
-  const classic = state.game !== 'retail';
   $('dlgTitle').textContent = nameOf(id);
   const dIcon = iconUrl(id);
   $('dlgIcon').hidden = !dIcon;
   if (dIcon) $('dlgIcon').src = dIcon;
-  $('dlgLink').href = `https://www.wowhead.com/${classic ? 'classic/' : ''}item=${id}`;
+  $('dlgLink').href = wowheadUrl(id);
   const total = e.l.length ? e.l.reduce((s, l) => s + l[0], 0) : 0;
   $('dlgStats').innerHTML = [
     ['Lowest price', money(e.m)],
@@ -741,8 +740,10 @@ function ensureMeta(game) {
   return metaCache.get(game);
 }
 
+const WOWHEAD_PATH = { retail: '', classic: 'mop-classic/', classic1x: 'classic/' };
+
 function wowheadUrl(id) {
-  return `https://www.wowhead.com/${state.game === 'retail' ? '' : 'classic/'}item=${id}`;
+  return `https://www.wowhead.com/${WOWHEAD_PATH[state.game] ?? 'classic/'}item=${id}`;
 }
 
 function classify(id, meta) {
@@ -754,8 +755,12 @@ function classify(id, meta) {
 
 const commodityCache = new Map();
 
+function hasCommodities() {
+  return state.realms.some(r => r.id === 'commodities');
+}
+
 function loadCommodities() {
-  if (state.game !== 'retail') return Promise.resolve(null);
+  if (!hasCommodities()) return Promise.resolve(null);
   const key = `${state.game}/${state.region}/commodities/latest.json.gz`;
   if (!commodityCache.has(key)) commodityCache.set(key, fetchData(key).catch(() => null));
   return commodityCache.get(key);
@@ -901,7 +906,7 @@ async function salesRates(days) {
   const own = rateMap(await loadSalesFile(`${base}/${state.realmId}/sales.json.gz`), days, state.realmId === 'commodities');
   let hours = own.hours;
   const map = own.map;
-  if (state.game === 'retail' && state.realmId !== 'commodities') {
+  if (hasCommodities() && state.realmId !== 'commodities') {
     const comm = rateMap(await loadSalesFile(`${base}/commodities/sales.json.gz`), days, true);
     for (const [id, r] of comm.map) if (!map.has(id)) map.set(id, r);
     hours = Math.max(hours, comm.hours);

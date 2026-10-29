@@ -32,7 +32,7 @@ const HOUSE_CODE = { alliance: 1, horde: 2, blackwater: 3 };
 
 const GAMES = {
   retail: { label: 'Retail', dynamic: 'dynamic-{r}', static: 'static-{r}', commodities: true, houses: false, journal: true },
-  classic: { label: 'Classic (Progression)', dynamic: 'dynamic-classic-{r}', static: 'static-classic-{r}', staticFallback: ['static-classic1x-{r}'], commodities: false, houses: true, journal: false },
+  classic: { label: 'Classic (Progression)', dynamic: 'dynamic-classic-{r}', static: 'static-classic-{r}', staticFallback: ['static-classic1x-{r}'], commodities: true, houses: false, journal: false },
   classic1x: { label: 'Classic Era', dynamic: 'dynamic-classic1x-{r}', static: 'static-classic1x-{r}', staticFallback: ['static-classic-{r}'], commodities: false, houses: true, journal: false }
 };
 
@@ -685,6 +685,7 @@ async function main() {
   const manifest = (await readJson(path.join(OUT_DIR, 'games.json'))) || { games: [] };
   const table = new Map(manifest.games.map(g => [g.id, { id: g.id, label: g.label, regions: new Set(g.regions) }]));
   let successes = 0;
+  const empty = [];
 
   for (const gid of GAME_IDS) {
     const base = GAMES[gid];
@@ -700,10 +701,12 @@ async function main() {
       log(gid, 'sources failed', err.message);
     }
     await saveMeta(game, meta);
+    let gameOk = false;
     for (const region of REGIONS) {
       try {
         if (await collectRegion(game, region, now, meta)) {
           successes++;
+          gameOk = true;
           if (!table.has(gid)) table.set(gid, { id: gid, label: game.label, regions: new Set() });
           table.get(gid).regions.add(region);
         }
@@ -712,6 +715,11 @@ async function main() {
       }
       await saveMeta(game, meta);
     }
+    if (!gameOk) empty.push(gid);
+  }
+  for (const gid of empty) {
+    table.delete(gid);
+    log(gid, 'returned no auction data, hidden from the app');
   }
 
   for (const id of [...table.keys()]) {

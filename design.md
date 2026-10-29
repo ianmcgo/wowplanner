@@ -103,7 +103,10 @@ The tab works out profit in the browser from the selected server's latest prices
 - **Classic and Classic Era:** the profession and journal endpoints return 404, so Classic has Gathered and Other only, plus Wowhead links.
 
 ## Games and region
-- The collector now covers **Classic (Progression)** and **Classic Era** only, in the **US** region. Retail was removed at your request. Games or regions that are not in the current settings are deleted from the data on the next run.
+- **Classic (Progression)** is Mists of Pandaria Classic (game data build 5.5.x). It uses the modern auction house layout: each server has its own listings from `/data/wow/connected-realm/{id}/auctions`, and trade goods (herbs, ore, cloth, leather and so on) are on a region-wide commodities market at `/data/wow/auctions/commodities` in the `dynamic-classic-us` namespace. The separate Alliance, Horde and Blackwater house endpoints return 404 for it.
+- **Classic Era** auction data is not available from Blizzard's API right now. The house list loads, but every request for the listings returns 404 (checked on 29 October 2026). The collector keeps trying each run. Games that return no auction data are left out of `games.json`, so Classic Era will appear in the dropdown by itself if Blizzard starts serving it.
+- `diagnostics.json` at the top of the data branch records the item namespace each game uses and Blizzard's raw responses for the first few servers. Use it to check what the API returned without opening the workflow logs.
+- The collector is set to **Classic (Progression)** and **Classic Era**, in the **US** region. Retail was removed at your request. Games or regions that are not in the current settings are deleted from the data on the next run.
 - The page hides the region selector and always uses US.
 - To bring Retail back, add `retail` to the `GAMES` line in `collect.yml`. Retail also brings back dungeon and raid drop data, which only Retail's Journal API provides.
 
@@ -184,3 +187,8 @@ These were built from documentation and forum reports, then tested against a moc
 - GitHub Actions is free for public repos. Private repos have monthly minute limits, and an hourly job of up to 55 minutes would exceed the free allowance, so keep the repo public or reduce the schedule.
 - Blizzard allows 36,000 requests per hour per client. A full run of both regions uses roughly a few hundred auction requests plus item lookups, well under that.
 - Use only your own artwork and names in the app. Do not add Blizzard logos or art.
+
+## Outside data sources considered
+- **nexus-devs/wow-classic-items** (MIT license): 38,000 original-Classic items with sources (boss, quest, vendor, zone drop with drop chance), crafting reagents for about 3,200 items and vendor prices. Last updated 2022 and built by scraping Wowhead. It fits Classic Era best, but Era has no auction data, so it is not used yet.
+- **Napalmsteak/WoW-Classic-Item-Caches**: current data for every Classic version including MoP Classic and Forever, with dungeons, bosses, vendors, quests and recipe materials (inside Wowhead tooltip markup). It has no license file, so republishing it needs the author's permission. Not used.
+- Wowhead links on every item cover what Blizzard's data does not.
