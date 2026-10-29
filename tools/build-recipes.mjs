@@ -4,6 +4,8 @@ import path from 'node:path';
 const outFile = process.argv[2] || 'static/mop-classic-recipes.json';
 const logFile = process.argv[3] || 'static/recipes-build-log.json';
 const vendorListFile = process.argv[4] || 'static/vendor-items.json';
+const catalogFile = process.argv[5] || 'static/mop-classic-items.json';
+const JUNK = /^(OLD|Test|TEST|Deprecated|DEPRECATED|Monster -|\[PH\]|PH |zz|ZZ|QA |Unused|UNUSED)/;
 const BASE = process.env.WAGO_BASE || 'https://wago.tools';
 const PRODUCT_HINTS = (process.env.WAGO_PRODUCTS || 'wow_classic,wow_classic_ptr,wow_classic_beta').split(',');
 const VERSION_PREFIX = process.env.WAGO_VERSION_PREFIX || '5.';
@@ -87,13 +89,14 @@ const col = (row, ...names) => {
 async function main() {
   const { product, version } = await pickBuild();
   step('build', { product, version });
-  const [skillLines, abilities, effects, reagents, spellNames, items] = await Promise.all([
+  const [skillLines, abilities, effects, reagents, spellNames, items, itemBase] = await Promise.all([
     table('SkillLine', version),
     table('SkillLineAbility', version),
     table('SpellEffect', version),
     table('SpellReagents', version),
     table('SpellName', version),
-    table('ItemSparse', version)
+    table('ItemSparse', version),
+    table('Item', version)
   ]);
 
   const PROFESSIONS = new Set([164, 165, 171, 182, 185, 186, 197, 202, 333, 393, 755, 773, 129, 356]);
@@ -190,6 +193,25 @@ async function main() {
     if (n && !names[id]) names[id] = n;
   }
   step('vendor prices', { wanted: wanted.size, priced: Object.keys(buy).length });
+  const base = new Map();
+  for (const it of itemBase) base.set(Number(it.ID), it);
+  const catalog = {};
+  for (const [id, row] of itemRow) {
+    const name = itemName.get(id);
+    if (!name || JUNK.test(name)) continue;
+    const b = base.get(id) || {};
+    const q = Number(col(row, 'OverallQualityID') || 0);
+    const ilvl = Number(col(row, 'ItemLevel') || 0);
+    const req = Number(col(row, 'RequiredLevel') || 0);
+    const cls = Number(col(b, 'ClassID') ?? -1);
+    const sub = Number(col(b, 'SubclassID') ?? 0);
+    const inv = Number(col(row, 'InventoryType') ?? col(b, 'InventoryType') ?? 0);
+    const allow = Number(col(row, 'AllowableClass') || -1);
+    catalog[id] = [name, q, ilvl, req, cls, sub, inv, allow];
+  }
+  step('catalog', { items: Object.keys(catalog).length, itemColumns: itemBase[0] ? Object.keys(itemBase[0]).slice(0, 20) : [], sparseSample: itemRow.get(2589) ? { OverallQualityID: col(itemRow.get(2589), 'OverallQualityID'), ItemLevel: col(itemRow.get(2589), 'ItemLevel'), InventoryType: col(itemRow.get(2589), 'InventoryType'), AllowableClass: col(itemRow.get(2589), 'AllowableClass') } : null });
+  await mkdir(path.dirname(catalogFile), { recursive: true });
+  await writeFile(catalogFile, JSON.stringify({ v: 1, built: new Date().toISOString(), source: `wago.tools ${product} ${version}`, fields: ['name', 'quality', 'itemLevel', 'requiredLevel', 'classId', 'subclassId', 'inventoryType', 'allowableClassMask'], items: catalog }));
   const out = { v: 1, built: new Date().toISOString(), source: `wago.tools ${product} ${version}`, recipes, names, buy };
   await mkdir(path.dirname(outFile), { recursive: true });
   await writeFile(outFile, JSON.stringify(out));
