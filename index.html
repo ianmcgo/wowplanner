@@ -172,6 +172,12 @@ canvas { width: 100%; height: 220px; display: block; background: var(--panel-2);
 .fac.h { color: #ff7b72; border-color: #9e3b3b; }
 .zone-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
 .coords { color: var(--dim); font-size: .84rem; }
+.loc-h { margin: 10px 0 4px; font-size: .82rem; color: var(--dim); text-transform: uppercase; letter-spacing: .06em; font-weight: 600; }
+.mats { width: 100%; border-collapse: collapse; margin: 4px 0 6px; }
+.mats td, .mats th { padding: 5px 6px; text-align: right; white-space: nowrap; font-size: .92rem; border-bottom: 1px solid var(--line); }
+.mats td:first-child, .mats th:first-child { text-align: left; white-space: normal; }
+.mats tfoot td { font-weight: 600; border-bottom: 0; }
+.craft-box { background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; margin: 6px 0 10px; }
 #dlgLoc a { color: var(--accent-2); font-size: .9rem; }
 .linkish { all: unset; cursor: pointer; color: inherit; }
 .linkish:hover, .linkish:focus-visible { color: var(--accent-2); text-decoration: underline; }
@@ -386,6 +392,10 @@ footer p { margin: 4px 0; }
     <div class="stats" id="dlgStats"></div>
     <h3>How to get it</h3>
     <div class="how" id="dlgHow"></div>
+    <div id="dlgCraftWrap" hidden>
+      <h3>Crafted by</h3>
+      <div id="dlgCraft"></div>
+    </div>
     <div id="dlgLocWrap" hidden>
       <h3>Where to find it</h3>
       <div id="dlgLoc"></div>
@@ -596,13 +606,22 @@ async function fillLocations(id) {
   locState.sel = 0;
   locState.zone = null;
   locState.zones = loc.zones;
-  const items = list.map((src, k) => {
+  const row = (src, k, hide) => {
     const zones = Object.keys(src.spawns).map(z => loc.zones[z] || `Zone ${z}`).join(', ');
     const lvl = src.min && src.role !== 'Sold by' ? ` \u00b7 level ${src.min}${src.max && src.max !== src.min ? '-' + src.max : ''}` : '';
     const extra = src.kind === 'npc' ? `${src.sub ? ` &lt;${esc(src.sub)}&gt;` : ''}${src.role === 'Sold by' ? factionTag(src.fac) : ''}` : '';
-    return `<li><button type="button" data-loc="${k}" aria-pressed="${String(k === 0)}"><b>${esc(src.role)}:</b> ${esc(src.name)}${extra}<div class="sub">${esc(zones)}${esc(lvl)}</div></button></li>`;
-  }).join('');
-  $('dlgLoc').innerHTML = `<ul class="loc-list">${items}</ul><div id="locMap"></div>`;
+    const pts = Object.values(src.spawns).reduce((n, p) => n + p.length, 0);
+    return `<li${hide ? ' class="more" hidden' : ''}><button type="button" data-loc="${k}" aria-pressed="${String(k === 0)}">${esc(src.name)}${extra}<div class="sub">${esc(zones)}${esc(lvl)} \u00b7 ${pts} spawn point${pts === 1 ? '' : 's'}</div></button></li>`;
+  };
+  let html = '';
+  for (const role of ['Sold by', 'Dropped by', 'Found in']) {
+    const rows = list.map((src, k) => [src, k]).filter(([src]) => src.role === role);
+    if (!rows.length) continue;
+    const of = role === 'Dropped by' && entry.dn ? ` (top ${rows.length} of ${entry.dn})` : ` (${rows.length})`;
+    html += `<h4 class="loc-h">${esc(role)}${esc(of)}</h4><ul class="loc-list">${rows.map(([src, k], j) => row(src, k, j >= 8)).join('')}</ul>`;
+    if (rows.length > 8) html += `<button type="button" class="chip show-more">Show all ${rows.length}</button>`;
+  }
+  $('dlgLoc').innerHTML = `${html}<div id="locMap"></div>`;
   $('dlgLocWrap').hidden = false;
   renderLocMap();
 }
@@ -915,18 +934,81 @@ function findItem(id) {
   return state.snap.items.find(x => x.i === id) || (state.commodities && state.commodities.items.find(x => x.i === id)) || null;
 }
 
+function recipeByItem(ext) {
+  if (!ext._by) {
+    ext._by = new Map();
+    for (const [cid, r] of Object.entries(ext.recipes)) if (r.by) ext._by.set(r.by, Number(cid));
+  }
+  return ext._by;
+}
+
+function craftBlock(craftedId, prof, r, ext, loc, price) {
+  let out = `<div class="craft-box"><p><b>${esc(prof || (r && r.p) || 'Crafted')}</b>${r ? ` \u00b7 requires skill ${r.skill}` : ''}</p>`;
+  if (r) {
+    let cost = 0;
+    let complete = true;
+    const rows = r.r.map(([mid, qty]) => {
+      const p = price.get(mid);
+      const each = p && p.m !== null ? p.m : null;
+      if (each === null) complete = false;
+      else cost += each * qty;
+      return `<tr><td>${iconHtml(mid)}<button type="button" class="linkish" data-open="${mid}"${qs(mid)}>${esc(nameOf(mid))}</button></td><td>${qty}</td><td>${each === null ? '<span class="dim">not listed</span>' : money(each)}</td><td>${each === null ? '<span class="dim">-</span>' : money(each * qty)}</td></tr>`;
+    }).join('');
+    const sell = price.get(craftedId);
+    let foot = `<tr><td>Materials total</td><td></td><td></td><td>${complete ? money(Math.round(cost)) : '<span class="dim">unknown</span>'}</td></tr>`;
+    if (complete && sell && sell.m !== null) {
+      const profit = sell.m * (1 - AH_CUT) - cost;
+      foot += `<tr><td>Profit if sold at ${money(sell.m)} (after 5% cut)</td><td></td><td></td><td${profit >= 0 ? ' style="color:#7bd88f"' : ' style="color:var(--danger)"'}>${profit < 0 ? '-' : ''}${money(Math.round(Math.abs(profit)))}</td></tr>`;
+    }
+    out += `<table class="mats"><thead><tr><th>Material</th><th>Qty</th><th>Each</th><th>Total</th></tr></thead><tbody>${rows}</tbody><tfoot>${foot}</tfoot></table>`;
+    if (r.by) {
+      const srcs = extSources(ext, r.by).map(([t, l]) => `${SOURCE_TEXT[t] || t}${l ? ': ' + l : ''}`);
+      const vendors = loc && loc.items[r.by] && loc.items[r.by].v ? loc.items[r.by].v.length : 0;
+      out += `<p>Learned from <button type="button" class="linkish" data-open="${r.by}"${qs(r.by)}>${esc(nameOf(r.by))}</button>${srcs.length ? ` (${esc(srcs.join('; '))})` : ''}${vendors ? `, sold by ${vendors} vendor${vendors === 1 ? '' : 's'}` : ''}. Open it to see where to get it.</p>`;
+    } else {
+      out += '<p class="dim">Learned from a profession trainer.</p>';
+    }
+  } else {
+    out += '<p class="dim">The material list for this item is not in the data yet. Recipes learned from trainers need Blizzard\'s recipe tables, which can be exported with wow.export.</p>';
+  }
+  return out + '</div>';
+}
+
+async function fillCraft(id) {
+  const game = state.game;
+  const [meta, commodities, loc] = await Promise.all([ensureMeta(game), loadCommodities(), ensureLocations(game)]);
+  if (state.openId !== id || state.game !== game || !$('detail').open) return;
+  const ext = meta.ext;
+  if (!ext) return;
+  const price = new Map(combinedItems(commodities).map(e => [e.i, e]));
+  let html = '';
+  const prof = ext.craft[id];
+  const r = ext.recipes[id];
+  if (prof || r) html += craftBlock(id, prof, r, ext, loc, price);
+  const teaches = recipeByItem(ext).get(id);
+  if (teaches) {
+    html += `<p>This recipe teaches <button type="button" class="linkish" data-open="${teaches}"${qs(teaches)}>${esc(nameOf(teaches))}</button>:</p>` + craftBlock(teaches, ext.recipes[teaches].p, ext.recipes[teaches], ext, loc, price);
+  }
+  if (!html) return;
+  $('dlgCraft').innerHTML = html;
+  $('dlgCraftWrap').hidden = false;
+}
+
 async function fillHow(id) {
   const game = state.game;
   const meta = await ensureMeta(game);
   const commodities = await loadCommodities();
   if (state.openId !== id || state.game !== game || !$('detail').open) return;
   const price = new Map(combinedItems(commodities).map(e => [e.i, e]));
-  const recipe = recipeHtml(id, meta, price);
+  const recipe = "";
   const src = sourceHtml(id, meta);
   const loc = await ensureLocations(game);
   if (state.openId !== id || state.game !== game) return;
   const le = loc && loc.items[id];
-  const locNote = le ? `<p>${le.v ? 'Sold by vendors' : ''}${le.v && (le.d || le.o) ? ', and ' : ''}${le.d ? 'dropped by creatures' : ''}${le.d && le.o ? ' and ' : ''}${le.o ? 'found in world objects' : ''}. See where to find it below.</p>` : '';
+  const has = (ids, table) => (ids || []).some(n => table && table[n]);
+  const ways = le ? [has(le.v, loc.npcs) && 'sold by vendors', has(le.d, loc.npcs) && 'dropped by creatures', has(le.o, loc.objects) && 'found in world objects'].filter(Boolean) : [];
+  const waysText = ways.length > 1 ? `${ways.slice(0, -1).join(', ')} and ${ways[ways.length - 1]}` : ways[0] || '';
+  const locNote = waysText ? `<p>${waysText.charAt(0).toUpperCase() + waysText.slice(1)}. See where to find it below.</p>` : '';
   $('dlgHow').innerHTML = (recipe || src || locNote
     ? `${recipe}${src ? `<ul>${src}</ul>` : ''}${locNote}`
     : '<p class="dim">No source is recorded for this item. It may be farmed, a quest reward or sold by a vendor.</p>') +
@@ -934,8 +1016,8 @@ async function fillHow(id) {
 }
 
 function openDetail(id) {
-  const e = findItem(id);
-  if (!e) return;
+  const listed = findItem(id);
+  const e = listed || { i: id, q: 0, n: 0, m: null, l: [] };
   $('dlgTitle').textContent = nameOf(id);
   $('dlgTitle').style.color = '';
   $('dlgTip').hidden = true;
@@ -956,6 +1038,7 @@ function openDetail(id) {
     ['Listings', e.n.toLocaleString()],
     ['Shown below', `${e.l.length} listings, ${total.toLocaleString()} units`]
   ].map(([k, v]) => `<div class="stat"><b>${k}</b>${v}</div>`).join('');
+  if (!listed) $('dlgStats').innerHTML = '<div class="stat"><b>Auction house</b>Not listed on this server right now</div>';
   $('listingsTable').classList.toggle('nofaction', !e.l.some(l => l[3]));
   $('dlgListings').innerHTML = e.l.length
     ? e.l.map(l => `<tr><td>${l[0].toLocaleString()}</td><td>${money(l[1])}</td><td>${money(l[0] * l[1])}</td><td>${esc(TIME_LABEL[l[2]] || '')}</td><td>${esc(l[3] ? l[3][0].toUpperCase() + l[3].slice(1) : '')}</td></tr>`).join('')
@@ -966,7 +1049,11 @@ function openDetail(id) {
   if (!dlg.open) dlg.showModal();
   $('dlgLocWrap').hidden = true;
   $('dlgLoc').innerHTML = '';
+  $('dlgCraftWrap').hidden = true;
+  $('dlgCraft').innerHTML = '';
+  $('detail').querySelector('.dlg-body').scrollTop = 0;
   fillHow(id);
+  fillCraft(id);
   fillLocations(id);
   drawChart();
   loadHistory().then(hist => {
@@ -1383,6 +1470,13 @@ $('tabProfit').addEventListener('click', () => setMode('profit'));
 $('tabSales').addEventListener('click', () => setMode('sales'));
 $('tabProfs').addEventListener('click', () => setMode('profs'));
 $('dlgLoc').addEventListener('click', ev => {
+  const more = ev.target.closest('.show-more');
+  if (more) {
+    const ul = more.previousElementSibling;
+    if (ul) ul.querySelectorAll('li.more').forEach(li => { li.hidden = false; });
+    more.remove();
+    return;
+  }
   const b = ev.target.closest('[data-loc]');
   if (b) {
     locState.sel = Number(b.dataset.loc);

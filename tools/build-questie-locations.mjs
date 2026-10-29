@@ -7,7 +7,9 @@ if (!dbDir || !outFile) {
   process.exit(1);
 }
 
-const MAX_SOURCES = 6;
+const MAX_VENDORS = 8;
+const MAX_DROPS = 25;
+const MAX_OBJECTS = 10;
 const MAX_ZONES = 3;
 const MAX_POINTS = 30;
 
@@ -138,9 +140,12 @@ for (const [id, row] of Object.entries(items)) {
   const objs = pick(row[2]).filter(o => objects[o] && objects[o][3]);
   if (!vendors.length && !drops.length && !objs.length) continue;
   const entry = {};
-  if (vendors.length) entry.v = vendors.slice(0, MAX_SOURCES);
-  if (drops.length) entry.d = drops.slice(0, MAX_SOURCES);
-  if (objs.length) entry.o = objs.slice(0, MAX_SOURCES);
+  if (vendors.length) entry.v = vendors.slice(0, MAX_VENDORS);
+  if (drops.length) {
+    entry.d = drops.slice(0, MAX_DROPS);
+    if (drops.length > MAX_DROPS) entry.dn = drops.length;
+  }
+  if (objs.length) entry.o = objs.slice(0, MAX_OBJECTS);
   out.items[id] = entry;
   for (const n of [...(entry.v || []), ...(entry.d || [])]) usedNpcs.add(n);
   for (const o of entry.o || []) usedObjects.add(o);

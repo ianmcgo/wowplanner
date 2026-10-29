@@ -213,9 +213,17 @@ These were built from documentation and forum reports, then tested against a moc
 - `static/mop-classic-locations.json` is built from QuestieDB's MoP data (`data/MoP/mopItemDB.lua`, `mopNpcDB.lua`, `mopObjectDB.lua`) and its zone list (`src/corrections/enum/zones.lua`). QuestieDB content may be reused under GPLv3 according to its license notes, so this derived file is marked GPL-3.0 and credited in the footer.
 - Build: `node tools/build-questie-locations.mjs <QuestieDB checkout> static/mop-classic-locations.json`. The script reads the Lua tables directly.
 - Format: `{ zones: { areaId: name }, npcs: { id: [name, title, faction "A"/"H"/"AH", minLevel, maxLevel, { areaId: [[x, y]] }] }, objects: { id: [name, { areaId: [[x, y]] }] }, items: { id: { v: [vendor npc ids], d: [dropping npc ids], o: [object ids] } } }`.
-- Limits per item: up to 6 vendors, 6 droppers and 6 objects. Per NPC or object: up to 3 zones and 30 points per zone. Coordinates are zone map percentages.
+- Limits per item: up to 8 vendors, 25 droppers and 10 objects. Per NPC or object: up to 3 zones and 30 points per zone. Coordinates are zone map percentages.
 - Zone names come from the enum constant names (for example `ELWYNN_FOREST` becomes "Elwynn Forest"). Six zones have no name and show as "Zone 1234".
 - The item popup has a "Where to find it" section: vendors with their title and faction, droppers with level range, and objects such as herb nodes or chests. Selecting one draws its spawn points on a plain zone grid (no game map art) with the coordinates listed below, plus a link to the full map on Wowhead.
+
+### Dropped by and Crafted by
+- The locations file keeps up to 8 vendors, 25 dropping creatures and 10 objects per item. When more creatures drop an item, `dn` holds the full count and the popup says "top 25 of N".
+- The popup groups sources under Sold by, Dropped by (with level range) and Found in, each with its spawn point count. The first 8 of each group show, with a "Show all" button. Selecting one draws it on the zone grid.
+- **Crafted by** shows the profession and required skill, a materials table (quantity, today's lowest price each, line total, materials total) and, when every material is listed, the profit after the 5% cut at the item's current price. It names the recipe item it is learned from with that item's sources and vendor count. Opening a recipe item shows what it teaches with the same table.
+- Materials, recipe items and other linked items open their own popup even when they are not listed on the server, so you can follow a material to its vendors or drops.
+- Material lists exist for the 259 recipes in the Napalmsteak data. Recipes learned from trainers need Blizzard's recipe tables (SpellReagents, SpellEffect, SkillLineAbility), which wow.export can export from the game files. Until then those items say the material list is not in the data yet.
+- MoP Classic crafting materials are mostly trade goods on the region-wide market, which Blizzard's API returns empty, so most show as "not listed" and the total is unknown.
 
 ## Listing filters
 - **Category** uses Blizzard's item class: Weapon (2), Armor (4), Container (1, 11), Consumable (0), Trade Goods (7 plus gems 3, reagents 5 and item enhancements 8), Recipe (9), and Quest / Miscellaneous for everything else (quest items, pets, mounts, keys, glyphs).
