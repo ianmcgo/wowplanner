@@ -1,5 +1,5 @@
 {
- "started": "2026-10-29T15:42:43.439Z",
+ "started": "2026-10-29T15:45:24.149Z",
  "steps": [
   {
    "name": "products",
@@ -230,7 +230,7 @@
   },
   {
    "name": "catalog",
-   "items": 83573,
+   "items": 81259,
    "itemColumns": [
     "ID",
     "ClassID",
@@ -279,5 +279,5 @@
   }
  ],
  "ok": true,
- "finished": "2026-10-29T15:43:19.019Z"
+ "finished": "2026-10-29T15:45:55.411Z"
 }
