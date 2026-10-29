@@ -18,6 +18,7 @@ const DAY = 86400;
 const RECIPE_TIERS = Number(env.RECIPE_TIERS || 3);
 const RECIPE_FETCH_CAP = Number(env.RECIPE_FETCH_CAP || 6000);
 const SOURCES_REFRESH_HOURS = Number(env.SOURCES_REFRESH_HOURS || 72);
+const SOURCES_VERSION = 2;
 const KNOWN_REGIONS = ['us', 'eu', 'kr', 'tw'];
 const TIME = { SHORT: 'S', MEDIUM: 'M', LONG: 'L', VERY_LONG: 'V' };
 
@@ -297,11 +298,17 @@ async function buildRecipes(game, base, ns, meta, prev) {
   const todo = wanted.filter(w => !(w.id in recipes));
   const batch = todo.slice(0, RECIPE_FETCH_CAP);
   log(game.id, 'recipes listed:', wanted.length, 'to fetch now:', batch.length);
+  const diag = { listed: wanted.length, fetched: batch.length, missing: 0, noCrafted: 0, samples: [] };
   await pool(batch, CONCURRENCY, async w => {
     try {
       const r = await getJson(`${base}/data/wow/recipe/${w.id}?namespace=${ns}&locale=en_US`);
-      const crafted = r && (r.crafted_item || r.alliance_crafted_item);
+      const crafted = r && (r.crafted_item || r.alliance_crafted_item || r.horde_crafted_item);
+      if (!r) diag.missing++;
       if (!crafted || !crafted.id) {
+        if (r) {
+          diag.noCrafted++;
+          if (diag.samples.length < 4) diag.samples.push(JSON.stringify(r).slice(0, 900));
+        }
         recipes[w.id] = null;
         return;
       }
@@ -322,7 +329,8 @@ async function buildRecipes(game, base, ns, meta, prev) {
       log(game.id, 'recipe failed', w.id, err.message);
     }
   });
-  return { recipes, pending: todo.length - batch.length };
+  log(game.id, 'recipe results. missing:', diag.missing, 'no crafted item:', diag.noCrafted);
+  return { recipes, pending: todo.length - batch.length, diag };
 }
 
 async function buildDrops(game, base, ns, meta) {
@@ -367,7 +375,8 @@ async function buildDrops(game, base, ns, meta) {
 
 async function buildSources(game, meta) {
   const file = path.join(OUT_DIR, game.id, 'sources.json.gz');
-  const prev = await readGz(file);
+  const stored = await readGz(file);
+  const prev = stored && stored.v === SOURCES_VERSION ? stored : null;
   const nowSec = Math.floor(Date.now() / 1000);
   const ageHours = prev && prev.t ? (nowSec - prev.t) / 3600 : Infinity;
   if (prev && ageHours < SOURCES_REFRESH_HOURS && !prev.pending) {
@@ -384,8 +393,10 @@ async function buildSources(game, meta) {
     return;
   }
   await writeGz(file, {
+    v: SOURCES_VERSION,
     u: new Date(nowSec * 1000).toISOString(),
     t: nowSec,
+    diag: built ? built.diag : null,
     pending: built ? built.pending : 0,
     recipes: built ? built.recipes : (prev && prev.recipes) || {},
     drops: drops || (prev && prev.drops) || {}
