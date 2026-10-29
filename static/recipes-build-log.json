@@ -1,0 +1,199 @@
+{
+ "started": "2026-10-29T15:24:43.291Z",
+ "steps": [
+  {
+   "name": "products",
+   "products": [
+    "wow_classic_era_ptr",
+    "wow_classic",
+    "wow_classic_ptr",
+    "wow_classic_beta",
+    "wow_classic_titan",
+    "wow_classic_era"
+   ]
+  },
+  {
+   "name": "build",
+   "product": "wow_classic",
+   "version": "5.5.4.70631"
+  },
+  {
+   "name": "table ItemSparse",
+   "rows": 88766,
+   "columns": [
+    "ID",
+    "Description_lang",
+    "Display3_lang",
+    "Display2_lang",
+    "Display1_lang",
+    "Display_lang",
+    "DmgVariance",
+    "DurationInInventory",
+    "QualityModifier",
+    "BagFamily",
+    "StartQuestID",
+    "ItemRange",
+    "StatPercentageOfSocket_0",
+    "StatPercentageOfSocket_1",
+    "StatPercentageOfSocket_2",
+    "StatPercentageOfSocket_3",
+    "StatPercentageOfSocket_4",
+    "StatPercentageOfSocket_5",
+    "StatPercentageOfSocket_6",
+    "StatPercentageOfSocket_7",
+    "StatPercentageOfSocket_8",
+    "StatPercentageOfSocket_9",
+    "StatPercentEditor_0",
+    "StatPercentEditor_1",
+    "StatPercentEditor_2",
+    "StatPercentEditor_3",
+    "StatPercentEditor_4",
+    "StatPercentEditor_5",
+    "StatPercentEditor_6",
+    "StatPercentEditor_7"
+   ]
+  },
+  {
+   "name": "table SkillLine",
+   "rows": 174,
+   "columns": [
+    "DisplayName_lang",
+    "AlternateVerb_lang",
+    "Description_lang",
+    "HordeDisplayName_lang",
+    "NeutralDisplayName",
+    "ID",
+    "CategoryID",
+    "SpellIconFileID",
+    "CanLink",
+    "ParentSkillLineID",
+    "ParentTierIndex",
+    "Flags",
+    "SpellBookSpellID"
+   ]
+  },
+  {
+   "name": "table SpellName",
+   "rows": 98183,
+   "columns": [
+    "ID",
+    "Name_lang"
+   ]
+  },
+  {
+   "name": "table SkillLineAbility",
+   "rows": 8523,
+   "columns": [
+    "ID",
+    "SkillLine",
+    "Spell",
+    "MinSkillLineRank",
+    "ClassMask",
+    "SupercedesSpell",
+    "AcquireMethod",
+    "TrivialSkillLineRankHigh",
+    "TrivialSkillLineRankLow",
+    "Flags",
+    "NumSkillUps",
+    "UniqueBit",
+    "TradeSkillCategoryID",
+    "Field_5_5_4_67090_013",
+    "Field_5_5_4_67090_014_0",
+    "Field_5_5_4_67090_014_1",
+    "RaceMask_0",
+    "RaceMask_1"
+   ]
+  },
+  {
+   "name": "table SpellReagents",
+   "rows": 6781,
+   "columns": [
+    "ID",
+    "SpellID",
+    "Reagent_0",
+    "Reagent_1",
+    "Reagent_2",
+    "Reagent_3",
+    "Reagent_4",
+    "Reagent_5",
+    "Reagent_6",
+    "Reagent_7",
+    "ReagentCount_0",
+    "ReagentCount_1",
+    "ReagentCount_2",
+    "ReagentCount_3",
+    "ReagentCount_4",
+    "ReagentCount_5",
+    "ReagentCount_6",
+    "ReagentCount_7"
+   ]
+  },
+  {
+   "name": "table SpellEffect",
+   "rows": 142837,
+   "columns": [
+    "ID",
+    "DifficultyID",
+    "EffectIndex",
+    "Effect",
+    "EffectAmplitude",
+    "EffectAttributes",
+    "EffectAura",
+    "EffectAuraPeriod",
+    "EffectBasePoints",
+    "EffectBonusCoefficient",
+    "EffectChainAmplitude",
+    "EffectChainTargets",
+    "EffectDieSides",
+    "EffectItemType",
+    "EffectMechanic",
+    "EffectPointsPerResource",
+    "EffectPos_facing",
+    "EffectRealPointsPerLevel",
+    "EffectTriggerSpell",
+    "BonusCoefficientFromAP",
+    "PvpMultiplier",
+    "Coefficient",
+    "Variance",
+    "ResourceCoefficient",
+    "GroupSizeBasePointsCoefficient",
+    "EffectBasePointsF",
+    "Field_5_5_4_67090_025",
+    "EffectMiscValue_0",
+    "EffectMiscValue_1",
+    "EffectRadiusIndex_0"
+   ]
+  },
+  {
+   "name": "profession spells",
+   "count": 5501
+  },
+  {
+   "name": "create item spells",
+   "count": 4708
+  },
+  {
+   "name": "spells with reagents",
+   "count": 4706
+  },
+  {
+   "name": "done",
+   "recipes": 4662,
+   "byProfession": {
+    "Alchemy": 310,
+    "Cooking": 272,
+    "Inscription": 587,
+    "First Aid": 22,
+    "Leatherworking": 900,
+    "Tailoring": 629,
+    "Mining": 31,
+    "Blacksmithing": 828,
+    "Engineering": 355,
+    "Enchanting": 29,
+    "Jewelcrafting": 699
+   }
+  }
+ ],
+ "ok": true,
+ "finished": "2026-10-29T15:24:55.493Z"
+}
