@@ -238,14 +238,33 @@ footer p { margin: 4px 0; }
   .hide-sm { display: none; }
   th, td { padding: 9px 8px; }
 }
+.ticker { display: flex; align-items: stretch; background: var(--panel); border-bottom: 1px solid var(--line); font-size: .86rem; height: 36px; overflow: hidden; }
+.ticker-label { flex: none; display: flex; align-items: center; padding: 0 12px; color: var(--accent); font-weight: 700; text-transform: uppercase; letter-spacing: .06em; font-size: .7rem; background: var(--panel-2); border-right: 1px solid var(--line); white-space: nowrap; }
+.ticker-view { flex: 1; overflow: hidden; position: relative; mask-image: linear-gradient(90deg, transparent, #000 24px, #000 calc(100% - 24px), transparent); }
+.ticker-track { display: flex; width: max-content; height: 100%; animation: ticker-move var(--ticker-time, 60s) linear infinite; }
+.ticker:hover .ticker-track, .ticker:focus-within .ticker-track { animation-play-state: paused; }
+.tick { display: inline-flex; align-items: center; gap: 7px; padding: 0 18px; height: 100%; background: none; border: 0; border-right: 1px solid var(--line); color: var(--text); font: inherit; cursor: pointer; white-space: nowrap; }
+.tick:hover .tick-name { text-decoration: underline; }
+.tick .ico { width: 20px; height: 20px; margin: 0; }
+.tick-up { color: #7bd88f; font-weight: 700; }
+.tick-down { color: var(--danger); font-weight: 700; }
+@keyframes ticker-move { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+@media (prefers-reduced-motion: reduce) {
+  .ticker-track { animation: none; }
+  .ticker-view { overflow-x: auto; mask-image: none; }
+}
+@media (max-width: 600px) {
+  .ticker-label { padding: 0 8px; }
+  .tick { padding: 0 12px; }
+}
 </style>
 </head>
 <body>
+<div class="ticker" id="ticker" hidden>
+  <div class="ticker-label" id="tickerLabel">Price moves</div>
+  <div class="ticker-view" id="tickerView"><div class="ticker-track" id="tickerTrack"></div></div>
+</div>
 <div class="wrap">
-  <header>
-    <h1>Auction House <span>Viewer</span></h1>
-    <p class="sub">Current listings by game and server, refreshed about once an hour.</p>
-  </header>
 
   <div class="tabs" role="tablist">
     <button type="button" role="tab" id="tabListings" aria-selected="true">Listings</button>
@@ -1018,6 +1037,7 @@ async function loadRealm() {
     state.historyPromise = null;
     state.page = 0;
     refresh();
+    renderTicker();
   };
   const later = (promise, fn) => promise.then(v => {
     if (seq !== state.seq) return;
@@ -1037,10 +1057,12 @@ async function loadRealm() {
   later(iconCache.has(game) ? Promise.resolve(iconCache.get(game)) : fetchData(`${game}/icons.json`, { swr: true }), v => {
     iconCache.set(game, v || {});
     state.icons = v || {};
+    renderTicker();
   });
   later(ensureTips(game), v => {
     state.tips = v;
     tipStatCache.clear();
+    renderTicker();
   });
   later(ensureInfo(game), v => { state.info = v || {}; });
   later(ensureExt(game), v => { state.ext = v; });
@@ -1195,6 +1217,75 @@ function render() {
   document.querySelectorAll('thead th[data-key]').forEach(th => {
     th.setAttribute('aria-sort', th.dataset.key === state.sortKey ? (state.sortDir === 1 ? 'ascending' : 'descending') : 'none');
   });
+}
+
+const TICKER_MAX = 24;
+const TICKER_MIN_LISTINGS = 3;
+const TICKER_MIN_PRICE = 100;
+const TICKER_MAX_UP = 1000;
+const TICKER_MAX_DOWN = 95;
+
+function priceMoves(snap, hist) {
+  const now = Date.parse(snap.u) / 1000;
+  const target = now - 86400;
+  const moves = [];
+  for (const e of snap.items) {
+    if (e.m === null || e.n < TICKER_MIN_LISTINGS) continue;
+    const pts = hist.h[e.i];
+    if (!pts) continue;
+    let old = null;
+    for (const p of pts) {
+      if (p[0] > now - 2700) continue;
+      if (!old || Math.abs(p[0] - target) < Math.abs(old[0] - target)) old = p;
+    }
+    if (!old || old[1] < TICKER_MIN_PRICE) continue;
+    const pct = ((e.m - old[1]) / old[1]) * 100;
+    if (Math.abs(pct) < 1 || pct > TICKER_MAX_UP || pct < -TICKER_MAX_DOWN) continue;
+    moves.push({ id: e.i, pct, hours: (now - old[0]) / 3600 });
+  }
+  moves.sort((a, b) => Math.abs(b.pct) - Math.abs(a.pct));
+  return moves.slice(0, TICKER_MAX);
+}
+
+function pctText(pct) {
+  const a = Math.abs(pct);
+  return (pct > 0 ? '\u25B2 +' : '\u25BC -') + a.toLocaleString(undefined, { maximumFractionDigits: a >= 100 ? 0 : 1 }) + '%';
+}
+
+async function renderTicker() {
+  const seq = state.seq;
+  const snap = state.snap;
+  if (!snap) return;
+  let hist;
+  try {
+    hist = await loadHistory();
+  } catch {
+    hist = null;
+  }
+  if (seq !== state.seq || snap !== state.snap) return;
+  const moves = hist && hist.h ? priceMoves(snap, hist) : [];
+  if (moves.length < 3) {
+    $('ticker').hidden = true;
+    return;
+  }
+  const hrs = Math.round(Math.max(...moves.map(m => m.hours)));
+  const label = hrs >= 20 ? '24h moves' : `${Math.max(1, hrs)}h moves`;
+  $('tickerLabel').textContent = label;
+  $('ticker').setAttribute('aria-label', `Biggest price changes over the last ${hrs >= 20 ? 24 : Math.max(1, hrs)} hours`);
+  const group = moves.map(m => `<button type="button" class="tick" data-open="${m.id}" title="${esc(nameOf(m.id))}: lowest price ${esc(moneyText(snap.items.find(x => x.i === m.id).m))}">${iconHtml(m.id)}<span class="tick-name"${qs(m.id)}>${esc(nameOf(m.id))}</span><span class="${m.pct > 0 ? 'tick-up' : 'tick-down'}">${pctText(m.pct)}</span></button>`).join('');
+  const track = $('tickerTrack');
+  $('ticker').hidden = false;
+  track.innerHTML = group;
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    track.style.removeProperty('--ticker-time');
+    return;
+  }
+  const groupWidth = track.scrollWidth || 1;
+  const reps = Math.max(1, Math.ceil($('tickerView').clientWidth / groupWidth));
+  const half = group.repeat(reps);
+  const hidden = half.replace(/<button /g, '<button tabindex="-1" aria-hidden="true" ');
+  track.innerHTML = half + hidden;
+  track.style.setProperty('--ticker-time', `${Math.max(20, Math.round((groupWidth * reps) / 45))}s`);
 }
 
 function loadHistory() {
@@ -1860,6 +1951,11 @@ for (const fid of ['category', 'wearClass', 'bindFilter']) {
     render();
   });
 }
+let tickerResize = 0;
+window.addEventListener('resize', () => {
+  clearTimeout(tickerResize);
+  tickerResize = setTimeout(renderTicker, 300);
+});
 document.addEventListener('click', ev => {
   const b = ev.target.closest('[data-open]');
   if (b) openDetail(Number(b.dataset.open));
