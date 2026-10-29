@@ -594,6 +594,76 @@
    "src": "zone",
    "name": "Tol Barad Peninsula",
    "kb": 133
+  },
+  "1519": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Stormwind City",
+   "kb": 141
+  },
+  "1637": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Orgrimmar",
+   "kb": 125
+  },
+  "3703": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Shattrath City",
+   "kb": 182
+  },
+  "4080": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Isle of QuelDanas",
+   "kb": 148
+  },
+  "4706": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Ruins of Gilneas",
+   "kb": 139
+  },
+  "4714": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Gilneas",
+   "kb": 138
+  },
+  "5146": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Vashjir",
+   "kb": 99
+  },
+  "6209": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "The Jade Forest",
+   "kb": 75
+  },
+  "6454": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Deathknell",
+   "kb": 124
+  },
+  "6455": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Sunstrider Isle",
+   "kb": 127
   }
  },
  "instances": {
