@@ -371,3 +371,7 @@ These were built from documentation and forum reports, then tested against a moc
 - `python3 tools/add-zone-maps.py <zones folder> <check sheet.png> --new` converts each to `static/maps/z<areaId>.webp` (quality 80, about 140 KB), records it in `static/maps/index.json` with `src: "zone"`, and draws the real spawn points on a check sheet. `--new` skips zones already converted. When a file's name matches a dungeon or raid on the drops tabs and that instance has no dungeon map, the zone image is used for its card.
 - They were added 10 at a time, busiest zones first, and replace the minimap-tile zone images for The Lost Isles, Gilneas City, The Wandering Isle, Darkmoon Island and Alterac Valley. The tile images stay for Ragefire Chasm and Scarlet Monastery (no world map export) and for the 15 dungeon maps.
 - The spawn map has a "Show labels" checkbox (remembered) that hides the zone name label drawn on the map. Markers on map art are red with a white outline.
+
+## Ticker look
+- The label box on the left ("24h moves", "5h moves", "Other servers") was removed, so the moving items fill the whole bar. The scroll bar is hidden.
+- The ticker scrolls on its own even when the system asks for reduced motion (it used to stop and turn into a hand-scrolled strip). It still pauses while the mouse is over it.
