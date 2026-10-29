@@ -765,6 +765,41 @@ async function collectRegion(game, region, now, meta) {
   return true;
 }
 
+async function probeEraNamespaces() {
+  const base = apiBase(REGIONS[0]);
+  const r = REGIONS[0];
+  const results = [];
+  let build = null;
+  const probe = await rawProbe(`${base}/data/wow/item/2589?namespace=static-classic1x-${r}`);
+  const m = /namespace=static-([\d._]+)-classic1x/.exec(probe.body || '');
+  if (m) build = m[1];
+  const namespaces = [`dynamic-classic1x-${r}`, `dynamic-classicann-${r}`, `dynamic-classic-ann-${r}`, `dynamic-classic1x-ann-${r}`, `dynamic-classicsod-${r}`];
+  if (build) namespaces.push(`dynamic-${build}-classic1x-${r}`);
+  for (const ns of namespaces) {
+    const entry = { ns };
+    const idx = await rawProbe(`${base}/data/wow/connected-realm/index?namespace=${ns}`);
+    entry.index = idx.status;
+    const first = /connected-realm\/(\d+)/.exec(idx.body || '');
+    if (idx.status === 200) {
+      const full = await getJson(`${base}/data/wow/connected-realm/index?namespace=${ns}`).catch(() => null);
+      const ids = full && full.connected_realms ? full.connected_realms.map(c => Number((/connected-realm\/(\d+)/.exec(c.href) || [])[1])) : [];
+      entry.realmCount = ids.length;
+      entry.tries = [];
+      for (const id of ids.slice(0, 3)) {
+        const cr = await getJson(`${base}/data/wow/connected-realm/${id}?namespace=${ns}&locale=en_US`).catch(() => null);
+        const names = cr && cr.realms ? cr.realms.map(x => localName(x.name)).join('/') : '';
+        const plain = await rawProbe(`${base}/data/wow/connected-realm/${id}/auctions?namespace=${ns}`);
+        const house = await rawProbe(`${base}/data/wow/connected-realm/${id}/auctions/2?namespace=${ns}`);
+        entry.tries.push({ id, names, plain: plain.status, plainBody: (plain.body || '').slice(0, 120), house2: house.status, house2Body: (house.body || '').slice(0, 120) });
+      }
+    } else if (first) {
+      entry.note = 'index body had realm links';
+    }
+    results.push(entry);
+  }
+  diagnostics.eraProbe = { build, results };
+}
+
 async function main() {
   if (!CLIENT_ID || !CLIENT_SECRET) throw new Error('Missing BLIZZARD_CLIENT_ID or BLIZZARD_CLIENT_SECRET');
   token = await getToken();
@@ -825,7 +860,14 @@ async function main() {
   }
   const games = [...table.values()].filter(g => g.regions.size).map(g => ({ id: g.id, label: g.label, regions: [...g.regions].sort() }));
   await writeJson(path.join(OUT_DIR, 'games.json'), { u: new Date(now * 1000).toISOString(), games });
-  await writeJson(path.join(OUT_DIR, 'diagnostics.json'), { u: new Date(now * 1000).toISOString(), games: diagnostics });
+  try {
+    await probeEraNamespaces();
+  } catch (err) {
+    diagnostics.eraProbe = { error: String(err.message) };
+  }
+  const eraProbe = diagnostics.eraProbe;
+  delete diagnostics.eraProbe;
+  await writeJson(path.join(OUT_DIR, 'diagnostics.json'), { u: new Date(now * 1000).toISOString(), games: diagnostics, eraProbe });
   if (!successes) throw new Error('No game and region combination was collected');
   log('done, collected', successes, 'game and region combinations');
 }
