@@ -48,6 +48,83 @@
    "ui": 435,
    "hit": 1.0,
    "kb": 17
+  },
+  "14": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Durotar",
+   "kb": 140
+  },
+  "210": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Icecrown",
+   "kb": 142
+  },
+  "331": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Ashenvale",
+   "kb": 138
+  },
+  "3483": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Hellfire Peninsula",
+   "kb": 126
+  },
+  "3518": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Nagrand",
+   "kb": 129
+  },
+  "3519": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Terokkar Forest",
+   "kb": 133
+  },
+  "3537": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Borean Tundra",
+   "kb": 181
+  },
+  "440": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Tanaris",
+   "kb": 139
+  },
+  "495": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Howling Fjord",
+   "kb": 177
+  },
+  "5785": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "The Jade Forest",
+   "kb": 127
+  },
+  "616": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Mount Hyjal",
+   "kb": 132
   }
  },
  "instances": {

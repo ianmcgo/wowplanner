@@ -238,7 +238,10 @@ thead th.plain { padding: 10px 12px; }
 #detail .how ul { margin: 2px 0 4px 16px; }
 #detail .how a { font-size: .8rem; }
 .zmap .zbg { fill: rgba(11, 13, 18, .7); }
-.zmap.art .mk { stroke: #fff; stroke-width: .3; }
+.zmap.art .mk { fill: #ff3b30; stroke: #fff; stroke-width: .3; }
+.zwrap.nolabels .zl, .zwrap.nolabels .zbg { display: none; }
+.map-labels { display: flex; align-items: center; gap: 6px; font-size: .76rem; color: var(--dim); margin: 4px 0 0; cursor: pointer; width: fit-content; text-transform: none; letter-spacing: 0; font-weight: 400; }
+.map-labels input { width: 14px; height: 14px; accent-color: var(--accent); margin: 0; }
 .imap { margin-top: 8px; }
 .imap summary { cursor: pointer; color: var(--dim); font-size: .82rem; }
 .imap img { display: block; width: 100%; max-width: 640px; height: auto; margin-top: 6px; border: 1px solid var(--line); border-radius: 8px; background: #182031; }
@@ -854,7 +857,7 @@ function mapSvg(zone, pts, area) {
   const art = mapIndex.zones[String(area)];
   if (art) {
     const h = +(100 * art.h / art.w).toFixed(2);
-    const marks = pts.map(([x, y]) => `<circle class="mk" cx="${x}" cy="${(y * h / 100).toFixed(2)}" r="1.1"/>`).join('');
+    const marks = pts.map(([x, y]) => `<circle class="mk" cx="${x}" cy="${(y * h / 100).toFixed(2)}" r="1.2"/>`).join('');
     const label = esc(zone);
     return `<svg class="zmap art" viewBox="0 0 100 ${h}" role="img" aria-label="${label}: ${pts.length} location${pts.length === 1 ? '' : 's'}"><image href="static/maps/z${esc(String(area))}.webp" x="0" y="0" width="100" height="${h}" preserveAspectRatio="none"/>${marks}<rect class="zbg" x="1" y="1" width="${(label.length * 1.6 + 3).toFixed(1)}" height="4.6" rx="1"/><text class="zl" x="2.4" y="4.4">${label}</text></svg>`;
   }
@@ -886,7 +889,9 @@ function renderLocMap() {
     ? `<div class="zone-tabs">${zones.map(z => `<button type="button" class="chip" data-zone="${z}" aria-pressed="${String(String(z) === String(locState.zone))}">${esc(zoneName(z))}</button>`).join('')}</div>`
     : '';
   const coords = pts.slice(0, 6).map(([x, y]) => `${x}, ${y}`).join(' \u00b7 ') + (pts.length > 6 ? ` and ${pts.length - 6} more` : '');
-  $('locMap').innerHTML = `${tabs}${mapSvg(zoneName(locState.zone), pts, locState.zone)}<div class="coords">${esc(zoneName(locState.zone))}: ${esc(coords)}</div>` +
+  const labels = store.get('ah.mapLabels') !== '0';
+  const toggle = `<label class="map-labels"><input type="checkbox" id="mapLabels"${labels ? ' checked' : ''}> Show labels</label>`;
+  $('locMap').innerHTML = `${tabs}${toggle}<div class="zwrap${labels ? '' : ' nolabels'}">${mapSvg(zoneName(locState.zone), pts, locState.zone)}</div><div class="coords">${esc(zoneName(locState.zone))}: ${esc(coords)}</div>` +
     `<a href="https://www.wowhead.com/${WOWHEAD_PATH[state.game] ?? 'classic/'}${src.kind}=${src.id}" target="_blank" rel="noopener">Open the full map on Wowhead</a>`;
 }
 
@@ -2451,6 +2456,12 @@ $('dlgLoc').addEventListener('click', ev => {
     locState.zone = null;
     $('dlgLoc').querySelectorAll('[data-loc]').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
     renderLocMap();
+    return;
+  }
+  if (ev.target.id === 'mapLabels') {
+    store.set('ah.mapLabels', ev.target.checked ? '1' : '0');
+    const w = $('locMap').querySelector('.zwrap');
+    if (w) w.classList.toggle('nolabels', !ev.target.checked);
     return;
   }
   const z = ev.target.closest('[data-zone]');
