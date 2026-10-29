@@ -1,0 +1,46 @@
+name: Build map bounds
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/build-map-bounds.yml
+      - tools/build-map-bounds.mjs
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-map-bounds
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Download map tables from wago.tools
+        run: node tools/build-map-bounds.mjs static/map-bounds.json
+
+      - name: Commit results
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add static/map-bounds.json
+          if git diff --cached --quiet; then
+            echo "No changes"
+            exit 0
+          fi
+          git commit -m "Update map bounds"
+          for i in 1 2 3; do
+            git pull --rebase origin main && git push origin HEAD:main && exit 0
+            sleep 5
+          done
+          exit 1
