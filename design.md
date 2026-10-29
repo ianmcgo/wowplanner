@@ -231,8 +231,17 @@ These were built from documentation and forum reports, then tested against a moc
 - The popup groups sources under Sold by, Dropped by (with level range) and Found in, each with its spawn point count. The first 8 of each group show, with a "Show all" button. Selecting one draws it on the zone grid.
 - **Crafted by** shows the profession and required skill, a materials table (quantity, today's lowest price each, line total, materials total) and, when every material is listed, the profit after the 5% cut at the item's current price. It names the recipe item it is learned from with that item's sources and vendor count. Opening a recipe item shows what it teaches with the same table.
 - Materials, recipe items and other linked items open their own popup even when they are not listed on the server, so you can follow a material to its vendors or drops.
-- Material lists exist for the 259 recipes in the Napalmsteak data. Recipes learned from trainers need Blizzard's recipe tables (SpellReagents, SpellEffect, SkillLineAbility), which wow.export can export from the game files. Until then those items say the material list is not in the data yet.
+- Material lists come from the wago.tools recipe build (4,662 items) and the Napalmsteak recipe items (259).
 - MoP Classic crafting materials are mostly trade goods on the region-wide market, which Blizzard's API returns empty, so most show as "not listed" and the total is unknown.
+
+### Recipes and vendor prices (wago.tools)
+- `.github/workflows/build-recipes.yml` runs `tools/build-recipes.mjs` on GitHub Actions (on changes, weekly on Monday, or by hand). It downloads Blizzard's MoP Classic data tables as CSV from wago.tools for the newest `wow_classic` 5.x build and commits `static/mop-classic-recipes.json` plus `static/recipes-build-log.json`.
+- Tables: `SkillLine` (profession names and parent lines), `SkillLineAbility` (spell to profession and required skill), `SpellEffect` (effect 24 = create item, giving the item made and how many), `SpellReagents` (up to 8 materials with counts), `SpellName`, and `ItemSparse` (names, `BuyPrice`, `VendorStackCount`).
+- Result: 4,662 crafted items with full material lists across all professions. The page merges them into the Napalmsteak recipe data; the Napalmsteak recipe item ("Learned from ...") is kept when both have the item.
+- Vendor prices: `buy` holds `BuyPrice` (or `[price, stack]`) for every item QuestieDB lists as vendor-sold (`static/vendor-items.json`, rebuilt with the locations file) plus every recipe material.
+- `BuyPrice` exists even for items no vendor sells for gold, so the page only uses it when the item has at least one vendor whose title is not a currency vendor (Justice, Honor, Valor and Conquest quartermasters, Darkmoon Faire, Legacy vendors, arena and similar).
+- Crafting costs use the lower of the auction house price and the gold vendor price for each material and mark vendor prices. The Top 10 profits crafted list uses the same rule.
+- The "Sold by" group in the popup shows the vendor price, per stack when vendors sell stacks.
 
 ## Listing filters
 - **Category** uses Blizzard's item class: Weapon (2), Armor (4), Container (1, 11), Consumable (0), Trade Goods (7 plus gems 3, reagents 5 and item enhancements 8), Recipe (9), and Quest / Miscellaneous for everything else (quest items, pets, mounts, keys, glyphs).

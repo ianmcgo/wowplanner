@@ -71,6 +71,8 @@ export function startMock(port) {
       return json({
         id,
         name: `Test Item ${id}`,
+        level: 60 + (id % 7),
+        required_level: 55,
         item_class: kind ? { id: 7, name: 'Trade Goods' } : { id: 2, name: 'Weapon' },
         item_subclass: { id: kind ? 0 : 7, name: kind || 'Sword' },
         inventory_type: { type: kind ? 'NON_EQUIP' : 'WEAPON', name: kind ? 'Non-equippable' : 'One-Hand' },
@@ -80,6 +82,7 @@ export function startMock(port) {
           binding: { type: 'ON_EQUIP', name: 'Binds when equipped' },
           inventory_type: { type: 'HEAD', name: 'Head' },
           item_subclass: { name: 'Plate' },
+          weapon: kind ? undefined : { damage: { display_string: '10 - 20 Damage' }, attack_speed: { display_string: 'Speed 2.00' }, dps: { value: 7.5, display_string: '(7.5 damage per second)' } },
           armor: { value: 500, display: { display_string: '500 Armor', color: { r: 255, g: 255, b: 255, a: 1 } } },
           stats: [{ value: 10, display: { display_string: '+10 Strength', color: { r: 255, g: 255, b: 255, a: 1 } } }],
           spells: [{ description: 'Equip: Improves your chance to hit by 1%.', display_color: { r: 0, g: 255, b: 0, a: 1 } }],

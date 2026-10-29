@@ -21,7 +21,7 @@ const SOURCES_REFRESH_HOURS = Number(env.SOURCES_REFRESH_HOURS || 72);
 const SOURCES_VERSION = 2;
 const CATS_VERSION = 2;
 const TIPS_VERSION = 1;
-const INFO_VERSION = 1;
+const INFO_VERSION = 2;
 const diagnostics = {};
 const commodityHref = new Map();
 const KNOWN_REGIONS = ['us', 'eu', 'kr', 'tw'];
@@ -511,7 +511,11 @@ function infoOf(item) {
   const p = item.preview_item || {};
   const pc = p.requirements && p.requirements.playable_classes;
   const classes = pc && Array.isArray(pc.links) ? pc.links.map(c => c.id).filter(Boolean) : null;
-  return classes && classes.length ? [cls, sub, inv, classes] : [cls, sub, inv];
+  const ilvl = item.level || (p.level && p.level.value) || 0;
+  const req = item.required_level || (p.requirements && p.requirements.level && p.requirements.level.value) || 0;
+  const dps = p.weapon && p.weapon.dps ? Math.round((p.weapon.dps.value || 0) * 10) / 10 : 0;
+  const armor = p.armor ? p.armor.value || 0 : 0;
+  return [cls, sub, inv, classes && classes.length ? classes : 0, ilvl, req, dps, armor];
 }
 
 function tooltipOf(item) {

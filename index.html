@@ -629,7 +629,10 @@ async function fillLocations(id) {
     const rows = list.map((src, k) => [src, k]).filter(([src]) => src.role === role);
     if (!rows.length) continue;
     const of = role === 'Dropped by' && entry.dn ? ` (top ${rows.length} of ${entry.dn})` : ` (${rows.length})`;
-    const note = role === 'Dropped by' && entry.ds ? `<div class="sub rate-src">Drop chances from ${esc(RATE_SOURCE[entry.ds] || entry.ds)}${entry.ds === 'mop' ? '' : '. Rates may differ in MoP Classic'}.</div>` : '';
+    const vu = role === 'Sold by' ? vendorUnit(id, state.ext, loc) : null;
+    const vb = vu !== null && state.ext.buy[id];
+    const vendNote = vu !== null ? `<div class="sub rate-src">Vendor price: ${money(Math.round(Array.isArray(vb) ? vb[0] : vb))}${Array.isArray(vb) ? ` for ${vb[1]}` : ''}</div>` : '';
+    const note = role === 'Sold by' ? vendNote : role === 'Dropped by' && entry.ds ? `<div class="sub rate-src">Drop chances from ${esc(RATE_SOURCE[entry.ds] || entry.ds)}${entry.ds === 'mop' ? '' : '. Rates may differ in MoP Classic'}.</div>` : '';
     html += `<h4 class="loc-h">${esc(role)}${esc(of)}</h4>${note}<ul class="loc-list">${rows.map(([src, k], j) => row(src, k, j >= 8)).join('')}</ul>`;
     if (rows.length > 8) html += `<button type="button" class="chip show-more">Show all ${rows.length}</button>`;
   }
@@ -639,12 +642,59 @@ async function fillLocations(id) {
 }
 const extCache = new Map();
 
+const RECIPE_FILES = { classic: 'static/mop-classic-recipes.json' };
+
+function fetchStatic(file) {
+  return file ? fetch(file, { cache: 'no-cache' }).then(r => (r.ok ? r.json() : null)).catch(() => null) : Promise.resolve(null);
+}
+
+function mergeRecipes(ext, wago) {
+  ext.buy = {};
+  if (!wago) return ext;
+  for (const [id, n] of Object.entries(wago.names || {})) if (!ext.names[id]) ext.names[id] = n;
+  for (const [cid, w] of Object.entries(wago.recipes || {})) {
+    const cur = ext.recipes[cid];
+    ext.recipes[cid] = { p: w.p, skill: w.skill, r: w.r, q: w.q || 1, by: cur ? cur.by : null };
+    if (!ext.craft[cid]) ext.craft[cid] = w.p;
+  }
+  ext.buy = wago.buy || {};
+  return ext;
+}
+
 function ensureExt(game) {
   if (!EXT_FILES[game]) return Promise.resolve(null);
   if (!extCache.has(game)) {
-    extCache.set(game, fetch(EXT_FILES[game], { cache: 'no-cache' }).then(r => (r.ok ? r.json() : null)).catch(() => null));
+    extCache.set(game, Promise.all([fetchStatic(EXT_FILES[game]), fetchStatic(RECIPE_FILES[game])])
+      .then(([ext, wago]) => (ext ? mergeRecipes(ext, wago) : null)));
   }
   return extCache.get(game);
+}
+
+const CURRENCY_VENDOR = /quartermaster|justice|honor|valor|conquest|arena|darkmoon|exotic goods|legacy|prizes|tabard|heirloom|sha'tari|emblem|badge|token|wintergrasp|triumphant|glorious|gladiator|exchange|spirit of harmony|currency|mark|insignia|commendation/i;
+
+function goldVendors(id, loc) {
+  const e = loc && loc.items[id];
+  if (!e || !e.v) return [];
+  return e.v.filter(n => {
+    const npc = loc.npcs[n];
+    return npc && !(npc[1] && CURRENCY_VENDOR.test(npc[1]));
+  });
+}
+
+function vendorUnit(id, ext, loc) {
+  if (!ext || !ext.buy || !goldVendors(id, loc).length) return null;
+  const b = ext.buy[id];
+  if (!b) return null;
+  return Array.isArray(b) ? b[0] / b[1] : b;
+}
+
+function unitCost(id, price, ext, loc) {
+  const p = price.get(id);
+  const ah = p && p.m !== null ? p.m : null;
+  const vend = vendorUnit(id, ext, loc);
+  if (ah !== null && (vend === null || ah <= vend)) return { each: ah, from: 'auction' };
+  if (vend !== null) return { each: vend, from: 'vendor' };
+  return { each: null, from: null };
 }
 
 function setStatus(text, isError) {
@@ -955,22 +1005,23 @@ function recipeByItem(ext) {
 }
 
 function craftBlock(craftedId, prof, r, ext, loc, price) {
-  let out = `<div class="craft-box"><p><b>${esc(prof || (r && r.p) || 'Crafted')}</b>${r ? ` \u00b7 requires skill ${r.skill}` : ''}</p>`;
+  const makes = r && r.q > 1 ? ` \u00b7 makes ${r.q}` : '';
+  let out = `<div class="craft-box"><p><b>${esc(prof || (r && r.p) || 'Crafted')}</b>${r ? ` \u00b7 requires skill ${r.skill}` : ''}${makes}</p>`;
   if (r) {
     let cost = 0;
     let complete = true;
     const rows = r.r.map(([mid, qty]) => {
-      const p = price.get(mid);
-      const each = p && p.m !== null ? p.m : null;
+      const { each, from } = unitCost(mid, price, ext, loc);
       if (each === null) complete = false;
       else cost += each * qty;
-      return `<tr><td>${iconHtml(mid)}<button type="button" class="linkish" data-open="${mid}"${qs(mid)}>${esc(nameOf(mid))}</button></td><td>${qty}</td><td>${each === null ? '<span class="dim">not listed</span>' : money(each)}</td><td>${each === null ? '<span class="dim">-</span>' : money(each * qty)}</td></tr>`;
+      const tag = from === 'vendor' ? ' <span class="dim">vendor</span>' : '';
+      return `<tr><td>${iconHtml(mid)}<button type="button" class="linkish" data-open="${mid}"${qs(mid)}>${esc(nameOf(mid))}</button></td><td>${qty}</td><td>${each === null ? '<span class="dim">not listed</span>' : money(Math.round(each)) + tag}</td><td>${each === null ? '<span class="dim">-</span>' : money(Math.round(each * qty))}</td></tr>`;
     }).join('');
     const sell = price.get(craftedId);
     let foot = `<tr><td>Materials total</td><td></td><td></td><td>${complete ? money(Math.round(cost)) : '<span class="dim">unknown</span>'}</td></tr>`;
     if (complete && sell && sell.m !== null) {
-      const profit = sell.m * (1 - AH_CUT) - cost;
-      foot += `<tr><td>Profit if sold at ${money(sell.m)} (after 5% cut)</td><td></td><td></td><td${profit >= 0 ? ' style="color:#7bd88f"' : ' style="color:var(--danger)"'}>${profit < 0 ? '-' : ''}${money(Math.round(Math.abs(profit)))}</td></tr>`;
+      const profit = sell.m * (r.q || 1) * (1 - AH_CUT) - cost;
+      foot += `<tr><td>Profit if sold at ${money(sell.m)}${r.q > 1 ? ' each' : ''} (after 5% cut)</td><td></td><td></td><td${profit >= 0 ? ' style="color:#7bd88f"' : ' style="color:var(--danger)"'}>${profit < 0 ? '-' : ''}${money(Math.round(Math.abs(profit)))}</td></tr>`;
     }
     out += `<table class="mats"><thead><tr><th>Material</th><th>Qty</th><th>Each</th><th>Total</th></tr></thead><tbody>${rows}</tbody><tfoot>${foot}</tfoot></table>`;
     if (r.by) {
@@ -978,7 +1029,7 @@ function craftBlock(craftedId, prof, r, ext, loc, price) {
       const vendors = loc && loc.items[r.by] && loc.items[r.by].v ? loc.items[r.by].v.length : 0;
       out += `<p>Learned from <button type="button" class="linkish" data-open="${r.by}"${qs(r.by)}>${esc(nameOf(r.by))}</button>${srcs.length ? ` (${esc(srcs.join('; '))})` : ''}${vendors ? `, sold by ${vendors} vendor${vendors === 1 ? '' : 's'}` : ''}. Open it to see where to get it.</p>`;
     } else {
-      out += '<p class="dim">Learned from a profession trainer.</p>';
+      out += '<p class="dim">Learned from a profession trainer, or from a recipe item not in the source data.</p>';
     }
   } else {
     out += '<p class="dim">The material list for this item is not in the data yet. Recipes learned from trainers need Blizzard\'s recipe tables, which can be exported with wow.export.</p>';
@@ -1108,8 +1159,9 @@ function ensureMeta(game) {
     metaCache.set(game, Promise.all([
       fetchData(`${game}/sources.json.gz`).catch(() => null),
       fetchData(`${game}/cats.json`).catch(() => ({})),
-      ensureExt(game)
-    ]).then(([sources, cats, ext]) => ({ sources, cats, ext })));
+      ensureExt(game),
+      ensureLocations(game)
+    ]).then(([sources, cats, ext, loc]) => ({ sources, cats, ext, loc })));
   }
   return metaCache.get(game);
 }
@@ -1205,7 +1257,7 @@ function computeProfits(method, minListings, meta, items) {
   const recipes = (meta.sources && meta.sources.recipes) || {};
   if (method === 'craft') {
     const best = new Map();
-    const extRecipes = meta.ext ? Object.entries(meta.ext.recipes).map(([i, r]) => ({ p: r.p, t: '', i: Number(i), q: 1, r: r.r })) : [];
+    const extRecipes = meta.ext ? Object.entries(meta.ext.recipes).map(([i, r]) => ({ p: r.p, t: '', i: Number(i), q: r.q || 1, r: r.r })) : [];
     for (const r of [...Object.values(recipes), ...extRecipes]) {
       if (!r || !r.r.length) continue;
       const sell = price.get(r.i);
@@ -1214,10 +1266,10 @@ function computeProfits(method, minListings, meta, items) {
       let complete = true;
       const reagents = [];
       for (const [id, qty] of r.r) {
-        const p = price.get(id);
-        if (!p || p.m === null) { complete = false; break; }
-        cost += p.m * qty;
-        reagents.push({ id, qty, unit: p.m });
+        const { each } = unitCost(id, price, meta.ext, meta.loc);
+        if (each === null) { complete = false; break; }
+        cost += each * qty;
+        reagents.push({ id, qty, unit: each });
       }
       if (!complete) continue;
       const profit = sell.m * r.q * (1 - AH_CUT) - cost;

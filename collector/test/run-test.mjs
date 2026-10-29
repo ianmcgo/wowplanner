@@ -109,9 +109,9 @@ try {
   assert.equal(tips['139'], null);
 
   const info = JSON.parse(readFileSync(path.join(out, 'retail', 'iteminfo.json'), 'utf8'));
-  assert.deepEqual(info['100'], [7, 0, 'NON_EQUIP']);
-  assert.deepEqual(info['104'], [2, 7, 'WEAPON', [1, 2]]);
-  assert.deepEqual(info['109'], [2, 7, 'WEAPON']);
+  assert.deepEqual(info['100'], [7, 0, 'NON_EQUIP', 0, 62, 55, 0, 500]);
+  assert.deepEqual(info['104'], [2, 7, 'WEAPON', [1, 2], 66, 55, 7.5, 500]);
+  assert.deepEqual(info['109'], [2, 7, 'WEAPON', 0, 64, 55, 7.5, 500]);
   assert.equal(info['139'], null);
 
   const icons = JSON.parse(readFileSync(path.join(out, 'retail', 'icons.json'), 'utf8'));
