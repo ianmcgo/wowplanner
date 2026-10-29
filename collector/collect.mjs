@@ -19,6 +19,8 @@ const RECIPE_TIERS = Number(env.RECIPE_TIERS || 3);
 const RECIPE_FETCH_CAP = Number(env.RECIPE_FETCH_CAP || 6000);
 const SOURCES_REFRESH_HOURS = Number(env.SOURCES_REFRESH_HOURS || 72);
 const SOURCES_VERSION = 2;
+const CATS_VERSION = 2;
+const diagnostics = {};
 const KNOWN_REGIONS = ['us', 'eu', 'kr', 'tw'];
 const TIME = { SHORT: 'S', MEDIUM: 'M', LONG: 'L', VERY_LONG: 'V' };
 const ICON_LOOKUPS = Number(env.ICON_LOOKUPS || 8000);
@@ -30,8 +32,8 @@ const HOUSE_CODE = { alliance: 1, horde: 2, blackwater: 3 };
 
 const GAMES = {
   retail: { label: 'Retail', dynamic: 'dynamic-{r}', static: 'static-{r}', commodities: true, houses: false, journal: true },
-  classic: { label: 'Classic (Progression)', dynamic: 'dynamic-classic-{r}', static: 'static-classic-{r}', commodities: false, houses: true, journal: false },
-  classic1x: { label: 'Classic Era', dynamic: 'dynamic-classic1x-{r}', static: 'static-classic1x-{r}', commodities: false, houses: true, journal: false }
+  classic: { label: 'Classic (Progression)', dynamic: 'dynamic-classic-{r}', static: 'static-classic-{r}', staticFallback: ['static-classic1x-{r}'], commodities: false, houses: true, journal: false },
+  classic1x: { label: 'Classic Era', dynamic: 'dynamic-classic1x-{r}', static: 'static-classic1x-{r}', staticFallback: ['static-classic-{r}'], commodities: false, houses: true, journal: false }
 };
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -352,11 +354,13 @@ async function updateSales(dir, auctions, now) {
 async function loadMeta(game) {
   const dir = path.join(OUT_DIR, game.id);
   const icons = (await readJson(path.join(dir, 'icons.json'))) || {};
+  const info = (await readJson(path.join(dir, 'meta.json'))) || {};
   return {
     names: (await readJson(path.join(dir, 'items.json'))) || {},
-    cats: (await readJson(path.join(dir, 'cats.json'))) || {},
+    cats: info.catsVersion === CATS_VERSION ? (await readJson(path.join(dir, 'cats.json'))) || {} : {},
     iconBase: icons.base || null,
-    icons: icons.icons || {}
+    icons: icons.icons || {},
+    staticNs: null
   };
 }
 
@@ -365,6 +369,25 @@ async function saveMeta(game, meta) {
   await writeJson(path.join(dir, 'items.json'), meta.names);
   await writeJson(path.join(dir, 'cats.json'), meta.cats);
   await writeJson(path.join(dir, 'icons.json'), { base: meta.iconBase, icons: meta.icons });
+  await writeJson(path.join(dir, 'meta.json'), { catsVersion: CATS_VERSION, staticNs: meta.staticNs });
+}
+
+async function probeStatic(game, region, base, meta) {
+  const candidates = [game.static, ...(game.staticFallback || [])].map(s => s.replace('{r}', region));
+  const probes = [];
+  let chosen = null;
+  for (const ns of candidates) {
+    try {
+      const item = await getJson(`${base}/data/wow/item/2589?namespace=${ns}&locale=en_US`);
+      probes.push({ ns, ok: !!item, sample: item ? JSON.stringify(item).slice(0, 900) : null });
+      if (item && !chosen) chosen = ns;
+    } catch (err) {
+      probes.push({ ns, ok: false, error: String(err.message).slice(0, 200) });
+    }
+  }
+  meta.staticNs = chosen || candidates[0];
+  diagnostics[game.id] = { staticNs: meta.staticNs, probes };
+  log(game.id, 'item namespace:', meta.staticNs);
 }
 
 function storeIcon(meta, id, url) {
@@ -378,7 +401,7 @@ function storeIcon(meta, id, url) {
 }
 
 async function resolveIcons(game, region, base, seen, meta) {
-  const ns = game.static.replace('{r}', region);
+  const ns = meta.staticNs || game.static.replace('{r}', region);
   const missing = [...seen.entries()]
     .filter(([id]) => !(id in meta.icons))
     .sort((a, b) => b[1] - a[1])
@@ -398,8 +421,9 @@ async function resolveIcons(game, region, base, seen, meta) {
 
 function categoryOf(item) {
   const cls = item.item_class && item.item_class.id;
+  const clsName = localName(item.item_class && item.item_class.name).toLowerCase();
   const sub = localName(item.item_subclass && item.item_subclass.name).toLowerCase();
-  if (cls !== 7) return 'other';
+  if (cls !== 7 && !clsName.includes('trade')) return 'other';
   if (sub.includes('herb')) return 'herb';
   if (sub.includes('metal')) return 'ore';
   if (sub.includes('leather')) return 'leather';
@@ -408,7 +432,7 @@ function categoryOf(item) {
 }
 
 async function resolveItemNames(game, region, base, seen, meta) {
-  const ns = game.static.replace('{r}', region);
+  const ns = meta.staticNs || game.static.replace('{r}', region);
   const missing = [...seen.entries()]
     .filter(([id]) => !(id in meta.names) || !(id in meta.cats))
     .sort((a, b) => b[1] - a[1])
@@ -607,6 +631,7 @@ async function collectRegion(game, region, now, meta) {
     u: new Date(now * 1000).toISOString(),
     realms
   });
+  if (!meta.staticNs) await probeStatic(game, region, base, meta);
   await resolveItemNames(game, region, base, seen, meta);
   await resolveIcons(game, region, base, seen, meta);
   log(game.id, region, 'stored realms:', realms.length);
@@ -665,6 +690,7 @@ async function main() {
   }
   const games = [...table.values()].filter(g => g.regions.size).map(g => ({ id: g.id, label: g.label, regions: [...g.regions].sort() }));
   await writeJson(path.join(OUT_DIR, 'games.json'), { u: new Date(now * 1000).toISOString(), games });
+  await writeJson(path.join(OUT_DIR, 'diagnostics.json'), { u: new Date(now * 1000).toISOString(), games: diagnostics });
   if (!successes) throw new Error('No game and region combination was collected');
   log('done, collected', successes, 'game and region combinations');
 }
