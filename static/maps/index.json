@@ -790,6 +790,76 @@
    "src": "zone",
    "name": "New Tinkertown",
    "kb": 159
+  },
+  "3487": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Silvermoon City",
+   "kb": 156
+  },
+  "4228": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "The Oculus",
+   "kb": 183
+  },
+  "4273": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Ulduar",
+   "kb": 136
+  },
+  "4710": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Isle of Conquest",
+   "kb": 125
+  },
+  "4737": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Kezan",
+   "kb": 121
+  },
+  "4813": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Pit of Saron",
+   "kb": 151
+  },
+  "6141": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Shrine of Two Moons",
+   "kb": 69
+  },
+  "6170": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Northshire",
+   "kb": 103
+  },
+  "6453": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Echo Isles",
+   "kb": 137
+  },
+  "6661": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Isle of Giants",
+   "kb": 124
   }
  },
  "instances": {
@@ -903,6 +973,27 @@
    "h": 668,
    "src": "zone",
    "kb": 102
+  },
+  "The Oculus": {
+   "img": "z4228",
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "kb": 183
+  },
+  "Ulduar": {
+   "img": "z4273",
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "kb": 136
+  },
+  "Pit of Saron": {
+   "img": "z4813",
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "kb": 151
   }
  }
 }
