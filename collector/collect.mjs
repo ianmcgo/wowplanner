@@ -290,6 +290,7 @@ async function storeSnapshot(game, region, entry, auctions, seen, now) {
   const prev = await readGz(path.join(dir, 'history.json.gz'));
   await writeGz(path.join(dir, 'history.json.gz'), updateHistory(prev, items, now));
   await updateSales(dir, auctions, now);
+  return items.length;
 }
 
 function listingRows(auctions) {
@@ -657,8 +658,8 @@ async function collectRegion(game, region, now, meta) {
       const entry = { id, names };
       const auctions = await fetchRealmAuctions(game, base, ns, id);
       if (!auctions) return null;
-      await storeSnapshot(game, region, entry, auctions, seen, now);
-      return entry;
+      const count = await storeSnapshot(game, region, entry, auctions, seen, now);
+      return count > 0 ? entry : null;
     } catch (err) {
       log(game.id, region, 'realm failed', id, err.message);
       return null;
