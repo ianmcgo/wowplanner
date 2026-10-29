@@ -5,6 +5,8 @@ const outFile = process.argv[2] || 'static/mop-classic-recipes.json';
 const logFile = process.argv[3] || 'static/recipes-build-log.json';
 const vendorListFile = process.argv[4] || 'static/vendor-items.json';
 const catalogFile = process.argv[5] || 'static/mop-classic-items.json';
+const extCostFile = process.argv[6] || 'static/vendor-extended-costs.json';
+const currencyFile = process.argv[7] || 'static/currency-items.json';
 const JUNK = /deprecated|^old|\(old\)|^test|\btest\b|^zz|\[ph\]|^ph |^monster -|unused|^qa /i;
 const BASE = process.env.WAGO_BASE || 'https://wago.tools';
 const PRODUCT_HINTS = (process.env.WAGO_PRODUCTS || 'wow_classic,wow_classic_ptr,wow_classic_beta').split(',');
@@ -108,6 +110,14 @@ async function main() {
   const spellNames = await table('SpellName', version);
   const items = await table('ItemSparse', version);
   const itemBase = await table('Item', version);
+  let extCosts = null;
+  let currencyTypes = null;
+  try {
+    extCosts = await table('ItemExtendedCost', version);
+    currencyTypes = await table('CurrencyTypes', version);
+  } catch (err) {
+    step('currency tables failed', { error: String(err.message || err) });
+  }
 
   const PROFESSIONS = new Set([164, 165, 171, 182, 185, 186, 197, 202, 333, 393, 755, 773, 129, 356]);
   const lineName = new Map();
@@ -226,6 +236,47 @@ async function main() {
   step('catalog', { bonding: bondCounts, noSell: Object.values(catalog).filter(c => !c[9]).length, items: Object.keys(catalog).length, itemColumns: itemBase[0] ? Object.keys(itemBase[0]).slice(0, 20) : [], sparseSample: itemRow.get(2589) ? { OverallQualityID: col(itemRow.get(2589), 'OverallQualityID'), ItemLevel: col(itemRow.get(2589), 'ItemLevel'), InventoryType: col(itemRow.get(2589), 'InventoryType'), AllowableClass: col(itemRow.get(2589), 'AllowableClass') } : null });
   await mkdir(path.dirname(catalogFile), { recursive: true });
   await writeFile(catalogFile, JSON.stringify({ v: 1, built: new Date().toISOString(), source: `wago.tools ${product} ${version}`, fields: ['name', 'quality', 'itemLevel', 'requiredLevel', 'classId', 'subclassId', 'inventoryType', 'allowableClassMask', 'bonding', 'sellPrice'], items: catalog }));
+  if (extCosts && currencyTypes) {
+    let vendorCosts = {};
+    try {
+      vendorCosts = JSON.parse(await readFile(extCostFile, 'utf8'));
+    } catch {
+      vendorCosts = {};
+    }
+    const cur = new Map();
+    for (const c of currencyTypes) cur.set(Number(c.ID), { name: col(c, 'Name_lang', 'Name'), flags: Number(col(c, 'Flags', 'Flags_0') || 0) });
+    const costs = new Map();
+    for (const e of extCosts) {
+      const currencies = [];
+      const itemsNeeded = [];
+      for (let k = 0; k < 5; k++) {
+        const cid = Number(col(e, `CurrencyID_${k}`, `CurrencyID[${k}]`, `CurrencyID${k}`) || 0);
+        let cnt = Number(col(e, `CurrencyCount_${k}`, `CurrencyCount[${k}]`, `CurrencyCount${k}`) || 0);
+        if (cid > 0 && cnt > 0) {
+          const info = cur.get(cid);
+          if (info && info.flags & 8) cnt = cnt / 100;
+          currencies.push([cid, cnt]);
+        }
+        const iid = Number(col(e, `ItemID_${k}`, `ItemID[${k}]`, `ItemID${k}`) || 0);
+        const icnt = Number(col(e, `ItemCount_${k}`, `ItemCount[${k}]`, `ItemCount${k}`) || 0);
+        if (iid > 0 && icnt > 0) itemsNeeded.push([iid, icnt]);
+      }
+      if (currencies.length || itemsNeeded.length) costs.set(Number(e.ID), { c: currencies, i: itemsNeeded });
+    }
+    const curItems = {};
+    const used = new Set();
+    for (const [item, ids] of Object.entries(vendorCosts)) {
+      const opts = ids.map(id => costs.get(id)).filter(Boolean);
+      if (!opts.length) continue;
+      curItems[item] = opts.map(o => [o.c, o.i]);
+      for (const o of opts) for (const [cid] of o.c) used.add(cid);
+    }
+    const currencies = {};
+    for (const cid of used) currencies[cid] = cur.get(cid) ? cur.get(cid).name : `Currency ${cid}`;
+    const honorItems = Object.values(curItems).filter(o => o.some(([c]) => c.some(([cid]) => cid === 392))).length;
+    step('currency items', { extCostColumns: extCosts[0] ? Object.keys(extCosts[0]) : [], currencyColumns: currencyTypes[0] ? Object.keys(currencyTypes[0]).slice(0, 12) : [], items: Object.keys(curItems).length, honorItems, currencies, sample: Object.entries(curItems).filter(([, o]) => o.some(([c]) => c.some(([cid]) => cid === 392))).slice(0, 5) });
+    await writeFile(currencyFile, JSON.stringify({ v: 1, built: new Date().toISOString(), source: `wago.tools ${product} ${version} ItemExtendedCost and CurrencyTypes; vendor lists from the MaNGOS Four database (GPL-3.0)`, currencies, items: curItems }));
+  }
   const out = { v: 1, built: new Date().toISOString(), source: `wago.tools ${product} ${version}`, recipes, names, buy };
   await mkdir(path.dirname(outFile), { recursive: true });
   await writeFile(outFile, JSON.stringify(out));

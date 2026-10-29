@@ -161,6 +161,11 @@ canvas { width: 100%; height: 220px; display: block; background: var(--panel-2);
 .tabs { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
 .tabs button { border-radius: 10px; padding: 9px 16px; background: transparent; color: var(--dim); }
 .tabs button[aria-selected="true"] { background: var(--panel-2); color: var(--text); border-color: var(--accent); }
+@media (max-width: 600px) {
+  .tabs { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin-left: -16px; margin-right: -16px; padding: 0 16px 4px; }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tabs button { flex: none; padding: 8px 13px; }
+}
 .alt-mode .lf { display: none; }
 .pair { display: flex; gap: 6px; }
 .check-row { display: flex; align-items: center; gap: 8px; text-transform: none; letter-spacing: 0; font-size: .92rem; color: var(--text); padding: 9px 0; cursor: pointer; }
@@ -249,6 +254,22 @@ footer p { margin: 4px 0; }
 .tick .ico { width: 20px; height: 20px; margin: 0; }
 .tick-up { color: #7bd88f; font-weight: 700; }
 .tick-down { color: var(--danger); font-weight: 700; }
+.craft-prof-card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; margin-bottom: 12px; }
+.craft-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 18px; margin-bottom: 8px; }
+.craft-head h3 { margin: 0; font-size: 1.05rem; }
+.craft-head > span { display: flex; flex-wrap: wrap; gap: 6px 18px; color: var(--dim); font-size: .9rem; }
+.craft-head b { font-weight: 600; color: var(--text); }
+.craft-table { min-width: 640px; }
+.craft-table td:nth-child(2), .craft-table th:nth-child(2) { text-align: left; white-space: normal; width: 45%; }
+.craft-table td:first-child, .craft-table th:first-child { text-align: left; }
+.craft-table td { vertical-align: top; }
+.craft-table .rk { color: var(--accent); font-weight: 700; width: 28px; }
+.mat-line { color: var(--dim); font-size: .8rem; margin: 3px 0 0 30px; line-height: 1.35; }
+.mat-line .miss { color: var(--danger); }
+.gain { color: #7bd88f; font-weight: 600; }
+.loss { color: var(--danger); font-weight: 600; }
+.craft-more { margin-top: 8px; }
+.craft-more summary { cursor: pointer; color: var(--dim); font-size: .9rem; padding: 4px 0; }
 .tick-wait { color: var(--dim); cursor: default; border-right: 0; }
 .ticker-track:has(.tick-wait) { animation: none; }
 @keyframes ticker-move { from { transform: translateX(0); } to { transform: translateX(-50%); } }
@@ -274,6 +295,11 @@ footer p { margin: 4px 0; }
     <button type="button" role="tab" id="tabProfit" aria-selected="false">Top 10 profits</button>
     <button type="button" role="tab" id="tabSales" aria-selected="false">Fastest selling</button>
     <button type="button" role="tab" id="tabProfs" aria-selected="false">Professions</button>
+    <button type="button" role="tab" id="tabCraft" aria-selected="false">Crafting profit</button>
+    <button type="button" role="tab" id="tabHarvest" aria-selected="false">Harvesting</button>
+    <button type="button" role="tab" id="tabDungeon" aria-selected="false">Dungeon drops</button>
+    <button type="button" role="tab" id="tabRaid" aria-selected="false">Raid drops</button>
+    <button type="button" role="tab" id="tabPvp" aria-selected="false">PvP</button>
   </div>
 
   <section class="controls" aria-label="Choose game and server">
@@ -449,6 +475,47 @@ footer p { margin: 4px 0; }
     <p class="note">Estimated from hourly snapshots. A listing that disappears while it still had more than 2 hours left counts as sold, and a region-wide stack that shrinks counts the difference. Cancelled auctions look the same as sales, so treat this as a ranking, not exact numbers. Tracking needs a few hourly updates before it means much.</p>
   </section>
 
+  <section id="craftPanel" hidden>
+    <div class="profit-controls">
+      <div class="chips" role="group" aria-label="Profession" id="craftChips"></div>
+      <div class="field small">
+        <label for="craftMinListings">Min listings</label>
+        <input type="number" id="craftMinListings" min="1" value="2" inputmode="numeric">
+      </div>
+    </div>
+    <p class="status" id="craftStatus">Loading</p>
+    <div id="craftList"></div>
+    <p class="note">Profit = what the item sells for (lowest price on this server times how many one craft makes, minus the 5% auction house cut) minus the cost of its materials. Each material uses its lowest price on this server, or the vendor price when a vendor sells it for gold and that is cheaper. Green is profit, red is a loss. In MoP Classic most raw materials (ore, bars, cloth, herbs, leather, elementals) trade on the region-wide market, which Blizzard's API currently returns empty, so many recipes cannot be fully priced. Those are listed under "Missing material prices" with the most they could make. Single listings are often priced unrealistically, so Min listings starts at 2. Tap an item for its full recipe.</p>
+  </section>
+
+  <section id="harvestPanel" hidden>
+    <p class="status" id="harvestStatus">Loading</p>
+    <div id="harvestList"></div>
+    <p class="note">Herbs and ore come from QuestieDB's gathering node data and the item list; leather, hides and scales from the item list (skinning has no spawn data, so check the creatures that drop it). Items are ranked by their lowest price on this server. In MoP Classic, herbs, ore and leather trade on the region-wide market, which Blizzard's API currently returns empty, so most show "Not on this server's AH" and are ordered by what a vendor pays for them instead. Tap an item to see where it grows or spawns on a map.</p>
+  </section>
+
+  <section id="dropsPanel" hidden>
+    <div class="profit-controls">
+      <div class="chips" role="group" aria-label="Expansion" id="dropChips"></div>
+      <div class="field small">
+        <label for="dropMinListings">Min listings</label>
+        <input type="number" id="dropMinListings" min="1" value="1" inputmode="numeric">
+      </div>
+    </div>
+    <p class="status" id="dropsStatus">Loading</p>
+    <div id="dropsList"></div>
+    <p class="note">Drops that are listed on this server's auction house, ranked by lowest price. Bind-on-pickup gear never shows, since it can't be sold. Drop chances come from Questie (Wowhead MoP Classic data) or, for older content, the CMaNGOS and MaNGOS Three databases, so they may differ in MoP Classic. "Per kill" is the price times the drop chance: what one kill is worth on average if you sell it. Drops with no known chance show "-". Tap an item for every creature that drops it.</p>
+  </section>
+
+  <section id="pvpPanel" hidden>
+    <div class="profit-controls">
+      <div class="chips" role="group" aria-label="Currency" id="pvpChips"></div>
+    </div>
+    <p class="status" id="pvpStatus">Loading</p>
+    <div id="pvpList"></div>
+    <p class="note">Items vendors sell for this currency alone, ranked by gold you get back per 1,000 spent. Each item is worth the better of two ways out: selling it to any vendor (its vendor sell price), or listing it on this server's auction house at the lowest price minus the 5% cut, which is only possible when it doesn't bind on pickup. Most PvP gear binds on pickup, so its value is the vendor price. Costs come from Blizzard's item cost table (via wago.tools) matched to vendor lists from the MaNGOS Four database, so a few items may no longer be sold in MoP Classic.</p>
+  </section>
+
   <section id="profsPanel" hidden>
     <p class="status" id="profsStatus">Loading</p>
     <h3>Crafting professions</h3>
@@ -496,7 +563,7 @@ footer p { margin: 4px 0; }
     <p>Created by Ian McGonigal &middot; <a href="https://ianmcgo.github.io/website/" target="_blank" rel="noopener">Website</a> &middot; <a href="https://www.patreon.com/cw/ianmcg" target="_blank" rel="noopener">Patreon</a></p>
     <p>Fan-made tool, not affiliated with Blizzard Entertainment. Data comes from the Battle.net Game Data API.</p>
     <p>Item sources and recipes from <a href="https://github.com/Napalmsteak/WoW-Classic-Item-Caches" target="_blank" rel="noopener">WoW Classic Item Caches</a> by Napalmsteak, used with permission.</p>
-    <p>Vendor, drop and spawn locations derived from <a href="https://github.com/Questie/QuestieDB" target="_blank" rel="noopener">QuestieDB</a> (GPLv3). Drop chances also from the <a href="https://github.com/cmangos" target="_blank" rel="noopener">CMaNGOS</a> databases (GPLv3) and the <a href="https://github.com/mangosthree/database" target="_blank" rel="noopener">MaNGOS Three</a> world database (CC BY-NC-SA 3.0).</p>
+    <p>Vendor, drop and spawn locations derived from <a href="https://github.com/Questie/QuestieDB" target="_blank" rel="noopener">QuestieDB</a> (GPLv3). Drop chances also from the <a href="https://github.com/cmangos" target="_blank" rel="noopener">CMaNGOS</a> databases (GPLv3) and the <a href="https://github.com/mangosthree/database" target="_blank" rel="noopener">MaNGOS Three</a> world database (CC BY-NC-SA 3.0). Vendor currency costs matched using the <a href="https://github.com/mangosfour/database" target="_blank" rel="noopener">MaNGOS Four</a> database (GPLv3).</p>
   </div>
 </footer>
 
@@ -734,6 +801,8 @@ function renderLocMap() {
     `<a href="https://www.wowhead.com/${WOWHEAD_PATH[state.game] ?? 'classic/'}${src.kind}=${src.id}" target="_blank" rel="noopener">Open the full map on Wowhead</a>`;
 }
 
+const MINING_NODE = /\b(vein|deposit|lode|seam)\b/i;
+
 async function fillLocations(id) {
   const game = state.game;
   const [loc, vend] = await Promise.all([ensureLocFor(game, [id]), ensureGold(game)]);
@@ -753,9 +822,20 @@ async function fillLocations(id) {
       else list.push({ id: n, kind: 'object', role, name: row[0], spawns: row[1] });
     });
   };
+  const info = getInfo(id);
+  const herbItem = info ? info[0] === 7 && info[1] === 9 : false;
+  const objRole = o => {
+    const row = loc.objects[o];
+    if (!row) return 'Found in';
+    if (MINING_NODE.test(row[0])) return 'Mined from (Mining)';
+    if (herbItem || row[0] === nameOf(id)) return 'Gathered from (Herbalism)';
+    return 'Found in';
+  };
+  const gather = (entry.o || []).filter(o => objRole(o) !== 'Found in');
+  gather.forEach(o => add([o], 'object', objRole(o)));
   add(entry.v, 'npc', 'Sold by');
   add(entry.d, 'npc', 'Dropped by', entry.dc);
-  add(entry.o, 'object', 'Found in');
+  (entry.o || []).filter(o => !gather.includes(o)).forEach(o => add([o], 'object', 'Found in'));
   if (!list.length) {
     $('dlgLocWrap').hidden = true;
     return;
@@ -773,7 +853,7 @@ async function fillLocations(id) {
     return `<li${hide ? ' class="more" hidden' : ''}><button type="button" data-loc="${k}" aria-pressed="${String(k === 0)}">${esc(src.name)}${extra}${pct}<div class="sub">${esc(zones)}${esc(lvl)} \u00b7 ${pts} spawn point${pts === 1 ? '' : 's'}</div></button></li>`;
   };
   let html = '';
-  for (const role of ['Sold by', 'Dropped by', 'Found in']) {
+  for (const role of ['Gathered from (Herbalism)', 'Mined from (Mining)', 'Sold by', 'Dropped by', 'Found in']) {
     const rows = list.map((src, k) => [src, k]).filter(([src]) => src.role === role);
     if (!rows.length) continue;
     const of = role === 'Dropped by' && entry.dn ? ` (top ${rows.length} of ${entry.dn})` : ` (${rows.length})`;
@@ -838,7 +918,7 @@ function setStatus(text, isError) {
   const el = $('status');
   el.className = isError ? 'err' : '';
   el.textContent = text;
-  for (const pid of ['profitStatus', 'salesStatus', 'profsStatus']) {
+  for (const pid of ['profitStatus', 'salesStatus', 'profsStatus', 'craftStatus', 'harvestStatus', 'dropsStatus', 'pvpStatus']) {
     const pel = $(pid);
     pel.className = isError ? 'status err' : 'status';
     pel.textContent = text;
@@ -1911,8 +1991,250 @@ async function renderProfs() {
     : `${realm}: ranked by the value listed now at the lowest price. Sales-based ranking starts once tracking has a few hourly updates. Updated ${ago(state.snap.u)}.`);
 }
 
+function craftRecipes(meta) {
+  const list = [];
+  for (const r of Object.values((meta.sources && meta.sources.recipes) || {})) if (r && r.r && r.r.length) list.push({ i: r.i, p: r.p, q: r.q || 1, r: r.r, skill: null });
+  if (meta.ext) for (const [i, r] of Object.entries(meta.ext.recipes)) if (r && r.r && r.r.length) list.push({ i: Number(i), p: r.p, q: r.q || 1, r: r.r, skill: r.skill || null });
+  return list;
+}
+
+function craftProfits(meta, items, minListings) {
+  const price = new Map(items.map(e => [e.i, e]));
+  const best = new Map();
+  for (const r of craftRecipes(meta)) {
+    const sell = price.get(r.i);
+    if (!sell || sell.m === null || sell.n < minListings) continue;
+    let cost = 0;
+    const missing = [];
+    const mats = [];
+    for (const [id, qty] of r.r) {
+      const { each, from } = unitCost(id, price, meta.ext, meta.gold);
+      if (each === null) missing.push(id);
+      else cost += each * qty;
+      mats.push({ id, qty, each, from });
+    }
+    const revenue = sell.m * r.q * (1 - AH_CUT);
+    const row = { id: r.i, prof: r.p, q: r.q, skill: r.skill, sell: sell.m * r.q, n: sell.n, cost, mats, missing, profit: revenue - cost, complete: !missing.length };
+    const key = r.p + ':' + r.i;
+    const cur = best.get(key);
+    if (!cur || (row.complete && !cur.complete) || (row.complete === cur.complete && row.profit > cur.profit)) best.set(key, row);
+  }
+  const profs = new Map();
+  for (const row of best.values()) {
+    if (!profs.has(row.prof)) profs.set(row.prof, { prof: row.prof, priced: [], partial: [] });
+    profs.get(row.prof)[row.complete ? 'priced' : 'partial'].push(row);
+  }
+  const out = [...profs.values()];
+  for (const p of out) {
+    p.priced.sort((a, b) => b.profit - a.profit);
+    p.partial.sort((a, b) => b.profit - a.profit);
+    p.top = p.priced.length ? p.priced[0].profit : null;
+  }
+  out.sort((a, b) => (a.top === null) - (b.top === null) || (b.top || 0) - (a.top || 0) || a.prof.localeCompare(b.prof));
+  return out;
+}
+
+function signedMoney(c) {
+  const v = Math.round(c);
+  return `<span class="${v >= 0 ? 'gain' : 'loss'}">${v < 0 ? '-' : ''}${money(Math.abs(v))}</span>`;
+}
+
+function craftRowHtml(row, rank) {
+  const mats = row.mats.map(m => `${m.qty}\u00d7 ${m.each === null ? `<span class="miss">${esc(nameOf(m.id))}</span>` : esc(nameOf(m.id))}${m.from === 'vendor' ? ' <span class="dim">(vendor)</span>' : ''}`).join(', ');
+  return `<tr><td class="rk">${rank}</td><td>${iconHtml(row.id)}<button type="button" class="linkish" data-open="${row.id}"${qs(row.id)}>${esc(nameOf(row.id))}</button>${row.q > 1 ? ` <span class="dim">\u00d7${row.q}</span>` : ''}<div class="mat-line">${mats}</div></td>` +
+    `<td class="hide-sm">${row.skill > 1 ? row.skill : '<span class="dim">-</span>'}</td><td>${money(row.sell)}</td>` +
+    `<td>${row.complete ? money(Math.round(row.cost)) : `${money(Math.round(row.cost))}<span class="dim"> + ${row.missing.length} unpriced</span>`}</td>` +
+    `<td>${row.complete ? signedMoney(row.profit) : `<span class="dim">at most</span> ${signedMoney(row.profit)}`}</td><td class="hide-sm">${row.n.toLocaleString()}</td></tr>`;
+}
+
+function craftTable(rows, startRank) {
+  return `<div class="table-wrap"><table class="craft-table"><thead><tr><th>#</th><th>Item and materials</th><th class="hide-sm">Skill</th><th>Sells for</th><th>Materials cost</th><th>Profit</th><th class="hide-sm">Listings</th></tr></thead><tbody>${rows.map((r, k) => craftRowHtml(r, startRank + k)).join('')}</tbody></table></div>`;
+}
+
+async function renderCraft() {
+  if (!state.snap) return;
+  const seq = state.seq;
+  const meta = await ensureMeta(state.game);
+  const commodities = await loadCommodities();
+  if (seq !== state.seq || state.mode !== 'craft') return;
+  const minListings = Math.max(1, parseInt($('craftMinListings').value, 10) || 1);
+  const profs = craftProfits(meta, combinedItems(commodities), minListings);
+  const realm = state.snap.realms.join(' / ');
+  if (!profs.length) {
+    $('craftChips').innerHTML = '';
+    $('craftList').innerHTML = '<div class="empty-note">No craftable items are listed on this server with that many listings.</div>';
+    setStatus(`${realm}: nothing to show. Try lowering Min listings or pick another server.`);
+    return;
+  }
+  if (state.craftProf && !profs.some(p => p.prof === state.craftProf)) state.craftProf = '';
+  $('craftChips').innerHTML = [['', 'All professions'], ...profs.map(p => [p.prof, p.prof])].map(([v, l]) =>
+    `<button type="button" class="chip craft-prof" data-prof="${esc(v)}" aria-pressed="${String((state.craftProf || '') === v)}">${esc(l)}</button>`).join('');
+  const shown = state.craftProf ? profs.filter(p => p.prof === state.craftProf) : profs;
+  $('craftList').innerHTML = shown.map(p => {
+    const top = p.priced.slice(0, 10);
+    const head = `<div class="craft-head"><h3>${esc(p.prof)}</h3><span>${p.priced.length ? `Best <b>${signedMoney(p.top)}</b>` : ''}<span>Fully priced <b>${p.priced.length}</b></span><span>Missing prices <b>${p.partial.length}</b></span></span></div>`;
+    const body = top.length ? craftTable(top, 1) : '<p class="dim">No recipe in this profession can be fully priced on this server right now.</p>';
+    const partial = p.partial.length
+      ? `<details class="craft-more"${top.length ? '' : ' open'}><summary>Missing material prices (${p.partial.length})</summary>${craftTable(p.partial.slice(0, 10), 1)}</details>`
+      : '';
+    return `<section class="craft-prof-card">${head}${body}${partial}</section>`;
+  }).join('');
+  const priced = profs.reduce((s, p) => s + p.priced.length, 0);
+  const winners = profs.reduce((s, p) => s + p.priced.filter(r => r.profit > 0).length, 0);
+  setStatus(`${realm}: ${priced.toLocaleString()} recipes fully priced, ${winners.toLocaleString()} of them profitable. Updated ${ago(state.snap.u)}.`);
+}
+
+const HARVEST_FILES = { classic: 'static/harvest-items.json' };
+const INSTANCE_FILES = { classic: 'static/instance-drops.json' };
+const EXPANSIONS = ['Classic', 'Burning Crusade', 'Wrath of the Lich King', 'Cataclysm', 'Mists of Pandaria'];
+const EXP_SHORT = { Classic: 'Classic', 'Burning Crusade': 'TBC', 'Wrath of the Lich King': 'Wrath', Cataclysm: 'Cata', 'Mists of Pandaria': 'MoP' };
+
+function fmtChance(c) {
+  return c < 1 ? c.toFixed(2) : c < 10 ? c.toFixed(1) : String(Math.round(c));
+}
+
+async function renderHarvest() {
+  if (!state.snap) return;
+  const seq = state.seq;
+  const game = state.game;
+  if (!HARVEST_FILES[game]) {
+    $('harvestList').innerHTML = '<div class="empty-note">There is no gathering data for this game.</div>';
+    return;
+  }
+  const [meta, commodities, harvest, catalog] = await Promise.all([ensureMeta(game), loadCommodities(), fetchStatic(HARVEST_FILES[game]), ensureCatalog(game)]);
+  if (seq !== state.seq || state.mode !== 'harvest') return;
+  if (catalog) state.catalog = catalog;
+  const price = new Map(combinedItems(commodities).map(e => [e.i, e]));
+  let pricedTotal = 0;
+  $('harvestList').innerHTML = Object.entries(harvest || {}).map(([prof, ids]) => {
+    const rows = Object.entries(ids).map(([id, nodes]) => {
+      const n = Number(id);
+      const e = price.get(n);
+      const c = catalog && catalog[n];
+      return { id: n, nodes, m: e && e.m !== null ? e.m : null, n: e ? e.n : 0, vend: c ? c[9] : 0, ilvl: c ? c[2] : 0 };
+    });
+    const priced = rows.filter(r => r.m !== null).sort((a, b) => b.m - a.m);
+    pricedTotal += priced.length;
+    const rest = rows.filter(r => r.m === null).sort((a, b) => b.vend - a.vend || b.ilvl - a.ilvl);
+    const top = priced.concat(rest).slice(0, 10);
+    const body = top.map((r, k) => `<tr><td class="rk">${k + 1}</td><td>${iconHtml(r.id)}<button type="button" class="linkish" data-open="${r.id}"${qs(r.id)}>${esc(nameOf(r.id))}</button></td>` +
+      `<td>${r.m !== null ? money(r.m) : '<span class="dim">Not on this server\'s AH</span>'}</td><td class="hide-sm">${r.n ? r.n.toLocaleString() : '<span class="dim">-</span>'}</td>` +
+      `<td>${r.vend ? money(r.vend) : '<span class="dim">-</span>'}</td><td class="hide-sm">${r.nodes ? r.nodes.toLocaleString() : '<span class="dim">-</span>'}</td></tr>`).join('');
+    return `<section class="craft-prof-card"><div class="craft-head"><h3>${esc(prof)}</h3><span><span>Items <b>${rows.length}</b></span><span>On this server's AH <b>${priced.length}</b></span></span></div>` +
+      `<div class="table-wrap"><table class="craft-table"><thead><tr><th>#</th><th>Item</th><th>Lowest price</th><th class="hide-sm">Listings</th><th>Vendor pays</th><th class="hide-sm">Node spawn points</th></tr></thead><tbody>${body}</tbody></table></div></section>`;
+  }).join('');
+  const realm = state.snap.realms.join(' / ');
+  setStatus(pricedTotal
+    ? `${realm}: ${pricedTotal} gathered item${pricedTotal === 1 ? '' : 's'} listed on this server. Updated ${ago(state.snap.u)}.`
+    : `${realm}: no gathered materials are listed on this server's auction house (they trade on the region-wide market, which Blizzard's API returns empty). Ranked by vendor value until that changes.`);
+}
+
+async function renderDrops() {
+  if (!state.snap) return;
+  const seq = state.seq;
+  const game = state.game;
+  const type = state.mode === 'raid' ? 'raid' : 'dungeon';
+  const label = type === 'raid' ? 'raid' : 'dungeon';
+  if (!INSTANCE_FILES[game]) {
+    $('dropsList').innerHTML = '<div class="empty-note">There is no instance data for this game.</div>';
+    return;
+  }
+  const [commodities, data] = await Promise.all([loadCommodities(), fetchStatic(INSTANCE_FILES[game])]);
+  if (seq !== state.seq || state.mode !== type) return;
+  const minListings = Math.max(1, parseInt($('dropMinListings').value, 10) || 1);
+  const price = new Map(combinedItems(commodities).map(e => [e.i, e]));
+  const exp = state.dropExp || '';
+  $('dropChips').innerHTML = [['', 'All expansions'], ...EXPANSIONS.map(x => [x, EXP_SHORT[x]])].map(([v, l]) =>
+    `<button type="button" class="chip drop-exp" data-exp="${esc(v)}" aria-pressed="${String(exp === v)}">${esc(l)}</button>`).join('');
+  const cards = [];
+  let empty = 0;
+  (data ? data.instances : []).forEach(([name, ex, t], idx) => {
+    if (t !== type || (exp && ex !== exp)) return;
+    const rows = [];
+    for (const [id, boss, chance] of data.drops[idx] || []) {
+      const e = price.get(id);
+      if (!e || e.m === null || e.n < minListings) continue;
+      rows.push({ id, boss, chance, m: e.m, n: e.n, ev: chance !== null ? (e.m * chance) / 100 : null });
+    }
+    if (!rows.length) {
+      empty++;
+      return;
+    }
+    rows.sort((a, b) => b.m - a.m);
+    cards.push({ name, ex, rows, best: rows[0].m, ev: rows.reduce((s, r) => s + (r.ev || 0), 0) });
+  });
+  cards.sort((a, b) => b.best - a.best);
+  $('dropsList').innerHTML = cards.length ? cards.map((c, k) => {
+    const body = c.rows.slice(0, 10).map((r, j) => `<tr><td class="rk">${j + 1}</td><td>${iconHtml(r.id)}<button type="button" class="linkish" data-open="${r.id}"${qs(r.id)}>${esc(nameOf(r.id))}</button><div class="mat-line">${r.boss ? esc(r.boss) : 'Unknown source'}</div></td>` +
+      `<td>${money(r.m)}</td><td class="hide-sm">${r.n.toLocaleString()}</td><td>${r.chance !== null ? fmtChance(r.chance) + '%' : '<span class="dim">-</span>'}</td><td>${r.ev !== null ? money(Math.round(r.ev)) : '<span class="dim">-</span>'}</td></tr>`).join('');
+    return `<details class="prof drop-card"${k < 3 ? ' open' : ''}><summary><span class="rk">${k + 1}</span><span class="pn">${esc(c.name)}</span><span>${esc(EXP_SHORT[c.ex] || c.ex)}</span><span>Best drop <b>${money(c.best)}</b></span><span>Sellable drops <b>${c.rows.length}</b></span>${c.ev ? `<span>Per clear (known chances) <b>${money(Math.round(c.ev))}</b></span>` : ''}</summary>` +
+      `<div class="inner"><table class="craft-table"><thead><tr><th>#</th><th>Item and source</th><th>Lowest price</th><th class="hide-sm">Listings</th><th>Drop chance</th><th>Per kill</th></tr></thead><tbody>${body}</tbody></table></div></details>`;
+  }).join('') : `<div class="empty-note">No ${label} drops are listed on this server with that many listings.</div>`;
+  const realm = state.snap.realms.join(' / ');
+  setStatus(`${realm}: ${cards.length} ${label}${cards.length === 1 ? '' : 's'} with drops listed on the auction house${empty ? `, ${empty} with none listed right now` : ''}. Updated ${ago(state.snap.u)}.`);
+}
+
+const CURRENCY_FILES = { classic: 'static/currency-items.json' };
+const PVP_CURRENCIES = [[392, 'Honor'], [390, 'Conquest'], [395, 'Justice'], [396, 'Valor']];
+
+async function renderPvp() {
+  if (!state.snap) return;
+  const seq = state.seq;
+  const game = state.game;
+  if (!CURRENCY_FILES[game]) {
+    $('pvpList').innerHTML = '<div class="empty-note">There is no vendor cost data for this game.</div>';
+    return;
+  }
+  const [commodities, data, catalog] = await Promise.all([loadCommodities(), fetchStatic(CURRENCY_FILES[game]), ensureCatalog(game)]);
+  if (seq !== state.seq || state.mode !== 'pvp') return;
+  if (catalog) state.catalog = catalog;
+  if (!data || !data.items) {
+    $('pvpChips').innerHTML = '';
+    $('pvpList').innerHTML = '<div class="empty-note">Vendor cost data has not been built yet. It is made by the "Build recipe data" workflow and appears here once that run finishes.</div>';
+    setStatus('Waiting for vendor cost data.');
+    return;
+  }
+  const present = PVP_CURRENCIES.filter(([cid]) => data.currencies && data.currencies[cid]);
+  const cur = present.some(([cid]) => cid === state.pvpCur) ? state.pvpCur : (present[0] || [392])[0];
+  $('pvpChips').innerHTML = present.map(([cid, label]) => `<button type="button" class="chip pvp-cur" data-cur="${cid}" aria-pressed="${String(cid === cur)}">${esc(label)}</button>`).join('');
+  const label = (present.find(([cid]) => cid === cur) || [0, 'currency'])[1];
+  const price = new Map(combinedItems(commodities).map(e => [e.i, e]));
+  const rows = [];
+  for (const [id, opts] of Object.entries(data.items)) {
+    let cost = null;
+    for (const [currencies, itemsNeeded] of opts) {
+      if (itemsNeeded.length || currencies.length !== 1 || currencies[0][0] !== cur) continue;
+      if (cost === null || currencies[0][1] < cost) cost = currencies[0][1];
+    }
+    if (!cost) continue;
+    const n = Number(id);
+    const c = catalog && catalog[n];
+    if (!c) continue;
+    const vend = c[9] || 0;
+    const e = price.get(n);
+    const tradeable = c[8] !== 1 && c[8] !== 4;
+    const ah = tradeable && e && e.m !== null ? e.m * (1 - AH_CUT) : null;
+    const best = Math.max(vend, ah || 0);
+    if (!best) continue;
+    rows.push({ id: n, cost, vend, ah, n: e ? e.n : 0, best, via: ah !== null && ah > vend ? 'Auction house' : 'Vendor', per: (best / cost) * 1000, tradeable });
+  }
+  rows.sort((a, b) => b.per - a.per);
+  const top = rows.slice(0, 25);
+  $('pvpList').innerHTML = top.length ? `<div class="table-wrap"><table class="craft-table"><thead><tr><th>#</th><th>Item</th><th>${esc(label)} cost</th><th>Vendor pays</th><th>AH lowest (after cut)</th><th>Best way</th><th>Gold per 1,000 ${esc(label.toLowerCase())}</th></tr></thead><tbody>${top.map((r, k) =>
+    `<tr><td class="rk">${k + 1}</td><td>${iconHtml(r.id)}<button type="button" class="linkish" data-open="${r.id}"${qs(r.id)}>${esc(nameOf(r.id))}</button><div class="mat-line">${r.tradeable ? 'Tradeable' : 'Binds on pickup'}</div></td>` +
+    `<td>${Math.round(r.cost).toLocaleString()}</td><td>${r.vend ? money(r.vend) : '<span class="dim">-</span>'}</td><td>${r.ah !== null ? money(Math.round(r.ah)) : `<span class="dim">${r.tradeable ? 'Not listed' : 'Can\'t list'}</span>`}</td>` +
+    `<td>${r.via}</td><td><span class="gain">${money(Math.round(r.per))}</span></td></tr>`).join('')}</tbody></table></div>`
+    : `<div class="empty-note">No items bought with ${esc(label)} alone have a sell value.</div>`;
+  const realm = state.snap.realms.join(' / ');
+  setStatus(`${realm}: ${rows.length.toLocaleString()} items bought with ${label} alone; top ${top.length} by gold per 1,000 ${label.toLowerCase()}. Updated ${ago(state.snap.u)}.`);
+}
+
 function refresh() {
-  if (state.mode === 'profit') renderProfit();
+  if (state.mode === 'pvp') renderPvp();
+  else if (state.mode === 'harvest') renderHarvest();
+  else if (state.mode === 'dungeon' || state.mode === 'raid') renderDrops();
+  else if (state.mode === 'craft') renderCraft();
+  else if (state.mode === 'profit') renderProfit();
   else if (state.mode === 'sales') renderSales();
   else if (state.mode === 'profs') renderProfs();
   else render();
@@ -1926,10 +2248,25 @@ function setMode(mode) {
   $('profitPanel').hidden = mode !== 'profit';
   $('salesPanel').hidden = mode !== 'sales';
   $('profsPanel').hidden = mode !== 'profs';
+  $('craftPanel').hidden = mode !== 'craft';
+  $('harvestPanel').hidden = mode !== 'harvest';
+  $('pvpPanel').hidden = mode !== 'pvp';
+  $('tabPvp').setAttribute('aria-selected', String(mode === 'pvp'));
+  $('dropsPanel').hidden = mode !== 'dungeon' && mode !== 'raid';
+  $('tabCraft').setAttribute('aria-selected', String(mode === 'craft'));
+  $('tabHarvest').setAttribute('aria-selected', String(mode === 'harvest'));
+  $('tabDungeon').setAttribute('aria-selected', String(mode === 'dungeon'));
+  $('tabRaid').setAttribute('aria-selected', String(mode === 'raid'));
   $('tabProfs').setAttribute('aria-selected', String(mode === 'profs'));
   $('tabListings').setAttribute('aria-selected', String(mode === 'listings'));
   $('tabProfit').setAttribute('aria-selected', String(mode === 'profit'));
   $('tabSales').setAttribute('aria-selected', String(mode === 'sales'));
+  const sel = document.querySelector('.tabs [aria-selected="true"]');
+  const bar = document.querySelector('.tabs');
+  if (sel && bar && bar.scrollWidth > bar.clientWidth) {
+    const left = sel.offsetLeft - bar.offsetLeft;
+    if (left < bar.scrollLeft || left + sel.offsetWidth > bar.scrollLeft + bar.clientWidth) bar.scrollLeft = Math.max(0, left - 16);
+  }
   refresh();
 }
 
@@ -1937,6 +2274,45 @@ $('tabListings').addEventListener('click', () => setMode('listings'));
 $('tabProfit').addEventListener('click', () => setMode('profit'));
 $('tabSales').addEventListener('click', () => setMode('sales'));
 $('tabProfs').addEventListener('click', () => setMode('profs'));
+$('tabCraft').addEventListener('click', () => setMode('craft'));
+$('tabHarvest').addEventListener('click', () => setMode('harvest'));
+$('tabPvp').addEventListener('click', () => setMode('pvp'));
+$('pvpChips').addEventListener('click', ev => {
+  const b = ev.target.closest('.pvp-cur');
+  if (!b) return;
+  state.pvpCur = Number(b.dataset.cur);
+  store.set('ah.pvpCur', String(state.pvpCur));
+  renderPvp();
+});
+state.pvpCur = Number(store.get('ah.pvpCur')) || 392;
+$('tabDungeon').addEventListener('click', () => setMode('dungeon'));
+$('tabRaid').addEventListener('click', () => setMode('raid'));
+$('dropChips').addEventListener('click', ev => {
+  const b = ev.target.closest('.drop-exp');
+  if (!b) return;
+  state.dropExp = b.dataset.exp;
+  store.set('ah.dropExp', state.dropExp);
+  renderDrops();
+});
+$('dropMinListings').addEventListener('input', () => {
+  store.set('ah.dropMin', $('dropMinListings').value);
+  renderDrops();
+});
+state.dropExp = store.get('ah.dropExp') || '';
+if (store.get('ah.dropMin')) $('dropMinListings').value = store.get('ah.dropMin');
+$('craftChips').addEventListener('click', ev => {
+  const b = ev.target.closest('.craft-prof');
+  if (!b) return;
+  state.craftProf = b.dataset.prof;
+  store.set('ah.craftProf', state.craftProf);
+  renderCraft();
+});
+$('craftMinListings').addEventListener('input', () => {
+  store.set('ah.craftMin', $('craftMinListings').value);
+  renderCraft();
+});
+state.craftProf = store.get('ah.craftProf') || '';
+if (store.get('ah.craftMin')) $('craftMinListings').value = store.get('ah.craftMin');
 $('dlgLoc').addEventListener('click', ev => {
   const more = ev.target.closest('.show-more');
   if (more) {
@@ -2070,7 +2446,7 @@ if (['craft', 'gather', 'dungeon', 'other'].includes(savedMethod)) {
   document.querySelectorAll('.chip[data-method]').forEach(c => c.setAttribute('aria-pressed', String(c.dataset.method === savedMethod)));
 }
 const savedTab = store.get('ah.tab');
-if (savedTab === 'profit' || savedTab === 'sales' || savedTab === 'profs') setMode(savedTab);
+if (savedTab === 'profit' || savedTab === 'sales' || savedTab === 'profs' || ['craft', 'harvest', 'dungeon', 'raid', 'pvp'].includes(savedTab)) setMode(savedTab);
 init();
 </script>
 </body>

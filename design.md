@@ -291,3 +291,25 @@ These were built from documentation and forum reports, then tested against a moc
 ## Classes line in tooltips
 - Every equippable item's tooltip ends with a "Classes:" line listing who can equip it, each name in its class color, or "Classes: All" when every class can. It uses the same rules as the Wearable by filter: armor type and weapon type by class in MoP, plus any class restriction on the item itself. When Blizzard's tooltip already has its own "Classes:" line, the colored line replaces it so it doesn't show twice.
 - Items that are not worn (trade goods, bags, consumables and so on) get no line. Rules come from `iteminfo.json`, or the catalog for unlisted items, so items with neither show no line.
+
+## Crafting profit tab
+- One card per profession with its 10 most profitable recipes on the selected server. Profit = lowest price of the crafted item times how many one craft makes, minus the 5% auction house cut, minus the materials. Each material costs the cheaper of its lowest price on the server or its vendor price (only vendors that take gold, from `static/gold-vendor-items.json`). Green numbers are profit, red are losses.
+- Recipes come from the wago.tools recipe file merged with Napalmsteak's recipes; when several recipes make the same item in one profession, the best one is kept. The Skill column is the recipe's minimum skill when it is above 1.
+- Recipes with any material that has no price go under "Missing material prices" with the known part of the cost and "at most" profit (what it would make if the missing materials were free). In MoP Classic most raw materials trade on the region-wide market, which the API returns empty, so on Pagle about 70 recipes are fully priced. Chips filter to one profession, Min listings (default 2) drops items with too few listings. Both are remembered.
+
+## Harvesting tab
+- Herbalism, Mining and Skinning cards, each with its top 10 items. Items listed on the server rank by lowest price first; the rest rank by what a vendor pays (catalog sell price), since gathered materials are on the empty region-wide market.
+- `static/harvest-items.json` (`{ Herbalism: { itemId: nodeSpawnPoints }, Mining: {...}, Skinning: {...} }`) is written by `tools/build-questie-locations.mjs`. Herbs: catalog Trade Goods / Herb items plus items gathered from a node with the same name as the item. Mining: items from objects named Vein, Deposit, Lode or Seam, plus catalog Metal & Stone items whose name ends in "Ore". Skinning: catalog Leather items minus crafted or non-skinned ones (cured hides, refined scales, salt, feathers and so on). Pandaria nodes are missing from QuestieDB, so MoP herbs and ores show no spawn count.
+- In the item popup, node objects are now split out of "Found in": "Gathered from (Herbalism)" for herb nodes and "Mined from (Mining)" for ore nodes, listed first so the map opens on a node.
+
+## Dungeon drops and Raid drops tabs
+- `static/instance-drops.json` (`{ instances: [[name, expansion, "dungeon" | "raid"]], drops: { index: [[itemId, source, dropChance or null]] } }`) is written by `tools/build-questie-locations.mjs`. Instance area ids come from QuestieDB's `support/Zones/dungeons.lua` (including alternative area ids), mapped to a hand-written list of every dungeon and raid by expansion, with MoP Classic types (Zul'Gurub and Zul'Aman are dungeons). Battlegrounds, the Deeprun Tram and Season of Discovery zones are left out.
+- An item counts for an instance when a creature that spawns there drops it with at least 0.5% chance, or with no known chance when the creature is a boss (rank 3) or Napalmsteak names it as the item's boss. Napalmsteak's MoP dungeon and raid sources fill in items QuestieDB lacks (boss names from that file; some are in French in the source data).
+- Each card shows an instance's sellable drops (listed on the server, at least Min listings) by lowest price: source creature, drop chance, and "Per kill" = price × chance. Instances are ordered by their best drop; the first 3 cards are open. Chips filter by expansion.
+
+## PvP tab
+- Ranks items bought with a single currency (Honor by default; Conquest, Justice and Valor chips when present) by gold returned per 1,000 spent. An item's value is the higher of its vendor sell price and, when it doesn't bind on pickup or isn't a quest item, its lowest auction price minus the 5% cut. Top 25 show.
+- Costs: `static/vendor-extended-costs.json` (`itemId: [ExtendedCost ids]`) lists every vendor item with a currency or item cost from the MaNGOS Four (MoP 5.4.8) `npc_vendor` and `npc_vendor_template` tables (GPLv3). The "Build recipe data" workflow downloads `ItemExtendedCost` and `CurrencyTypes` from wago.tools and writes `static/currency-items.json` (`{ currencies: { id: name }, items: { itemId: [[[[currencyId, amount]], [[itemId, count]]], ...] } }`). Amounts of currencies with the high-precision flag (8) are divided by 100. Items that also need another item, or two currencies, are skipped.
+
+## Tab bar
+- With nine tabs, the bar scrolls sideways on phones instead of wrapping, and switching tabs scrolls the active one into view.
