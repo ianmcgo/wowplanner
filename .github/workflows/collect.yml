@@ -1,6 +1,11 @@
 name: Collect auction data
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/collect.yml
+      - collector/collect.mjs
   schedule:
     - cron: '17 * * * *'
   workflow_dispatch:
