@@ -350,7 +350,6 @@ footer p { margin: 4px 0; }
 
   <div class="tabs" role="tablist">
     <button type="button" role="tab" id="tabListings" aria-selected="true">Listings</button>
-    <button type="button" role="tab" id="tabProfit" aria-selected="false">Top 10 profits</button>
     <button type="button" role="tab" id="tabSales" aria-selected="false">Fastest selling</button>
     <button type="button" role="tab" id="tabProfs" aria-selected="false">Professions</button>
     <button type="button" role="tab" id="tabCraft" aria-selected="false">Crafting profit</button>
@@ -502,24 +501,6 @@ footer p { margin: 4px 0; }
   </div>
   </div>
 
-  <section id="profitPanel" hidden>
-    <div class="profit-controls">
-      <div class="chips" role="group" aria-label="How the item is obtained">
-        <button type="button" class="chip" data-method="gather" aria-pressed="true">Gathered</button>
-        <button type="button" class="chip" data-method="dungeon" aria-pressed="false">Dungeon and raid drops</button>
-        <button type="button" class="chip" data-method="craft" aria-pressed="false">Crafted</button>
-        <button type="button" class="chip" data-method="other" aria-pressed="false">Other (farm, quest, vendor)</button>
-      </div>
-      <div class="field small">
-        <label for="minListings">Min listings</label>
-        <input type="number" id="minListings" min="1" value="3" inputmode="numeric">
-      </div>
-    </div>
-    <p class="status" id="profitStatus">Loading</p>
-    <ol class="cards" id="cards"></ol>
-    <p class="note">Estimates only. Profit is the lowest sell price minus the 5% auction house cut and the cost of reagents at today's lowest prices. Recipes that need reagents sold only by vendors are skipped. The auction data shows what is listed, not what sells, so check the listings count before you commit gold.</p>
-  </section>
-
   <section id="salesPanel" hidden>
     <div class="profit-controls">
       <div class="chips" role="group" aria-label="Time window">
@@ -670,7 +651,6 @@ const BASE = dataBase();
 
 const state = {
   mode: 'listings',
-  method: 'gather',
   win: 1,
   by: 'units',
   icons: {},
@@ -1048,7 +1028,7 @@ function setStatus(text, isError) {
   const el = $('status');
   el.className = isError ? 'err' : '';
   el.textContent = text;
-  for (const pid of ['profitStatus', 'salesStatus', 'profsStatus', 'craftStatus', 'harvestStatus', 'dropsStatus', 'pvpStatus']) {
+  for (const pid of ['salesStatus', 'profsStatus', 'craftStatus', 'harvestStatus', 'dropsStatus', 'pvpStatus']) {
     const pel = $(pid);
     pel.className = isError ? 'status err' : 'status';
     pel.textContent = text;
@@ -1873,16 +1853,6 @@ function sourceHtml(id, meta) {
   return parts.join('');
 }
 
-function recipeHtml(id, meta, price) {
-  const r = meta.ext && meta.ext.recipes[id];
-  if (!r) return '';
-  const lines = r.r.map(([rid, qty]) => {
-    const p = price.get(rid);
-    return `<li>${qty}\u00d7 ${esc(nameOf(rid))} ${p && p.m !== null ? 'at ' + money(p.m) + ' each' : '<span class="dim">(not listed)</span>'}</li>`;
-  }).join('');
-  return `<p><b>Made with ${esc(r.p)}</b> (skill ${r.skill}).</p><ul>${lines}</ul>`;
-}
-
 function craftMap(meta) {
   const map = new Map();
   for (const r of Object.values((meta.sources && meta.sources.recipes) || {})) if (r) map.set(r.i, r.p);
@@ -1923,117 +1893,6 @@ function combinedItems(commodities) {
   const have = new Set(items.map(e => e.i));
   for (const e of commodities.items) if (!have.has(e.i)) items.push(e);
   return items;
-}
-
-function computeProfits(method, minListings, meta, items) {
-  const price = new Map(items.map(e => [e.i, e]));
-  const recipes = (meta.sources && meta.sources.recipes) || {};
-  if (method === 'craft') {
-    const best = new Map();
-    const extRecipes = meta.ext ? Object.entries(meta.ext.recipes).map(([i, r]) => ({ p: r.p, t: '', i: Number(i), q: r.q || 1, r: r.r })) : [];
-    for (const r of [...Object.values(recipes), ...extRecipes]) {
-      if (!r || !r.r.length) continue;
-      const sell = price.get(r.i);
-      if (!sell || sell.m === null || sell.n < minListings) continue;
-      let cost = 0;
-      let complete = true;
-      const reagents = [];
-      for (const [id, qty] of r.r) {
-        const { each } = unitCost(id, price, meta.ext, meta.gold);
-        if (each === null) { complete = false; break; }
-        cost += each * qty;
-        reagents.push({ id, qty, unit: each });
-      }
-      if (!complete) continue;
-      const profit = sell.m * r.q * (1 - AH_CUT) - cost;
-      if (profit <= 0) continue;
-      const cur = best.get(r.i);
-      if (!cur || profit > cur.profit) {
-        best.set(r.i, { id: r.i, method, profit, sell: sell.m * r.q, cost, n: sell.n, q: sell.q, recipe: r, reagents, prof: r.p });
-      }
-    }
-    const unknown = [];
-    for (const [id, prof] of craftMap(meta)) {
-      if (best.has(id)) continue;
-      const sell = price.get(id);
-      if (!sell || sell.m === null || sell.n < minListings) continue;
-      unknown.push({ id, method, profit: null, revenue: sell.m * (1 - AH_CUT), sell: sell.m, cost: null, n: sell.n, q: sell.q, prof });
-    }
-    unknown.sort((a, b) => b.revenue - a.revenue);
-    return [...[...best.values()].sort((a, b) => b.profit - a.profit), ...unknown].slice(0, 10);
-  }
-  const crafted = new Set(Object.values(recipes).filter(Boolean).map(r => r.i));
-  const out = [];
-  for (const e of items) {
-    if (e.m === null || e.n < minListings) continue;
-    if (classify(e.i, meta) !== method) continue;
-    if (method !== 'dungeon' && (crafted.has(e.i) || (meta.ext && meta.ext.craft[e.i]))) continue;
-    out.push({ id: e.i, method, profit: e.m * (1 - AH_CUT), sell: e.m, cost: 0, n: e.n, q: e.q });
-  }
-  return out.sort((a, b) => b.profit - a.profit).slice(0, 10);
-}
-
-function howHtml(item, meta, price) {
-  let body = '';
-  if (item.method === 'craft' && item.reagents) {
-    const r = item.recipe;
-    const lines = item.reagents.map(x => `<li>${x.qty}\u00d7 ${esc(nameOf(x.id))} at ${money(Math.round(x.unit))} each</li>`).join('');
-    body = `<p><b>Craft it.</b> ${esc(r.p)}${r.t ? ' (' + esc(r.t) + ')' : ''}. Makes ${r.q} per craft.</p><ul>${lines}</ul>`;
-  } else if (item.method === 'craft') {
-    body = `<p><b>Craft it.</b> ${esc(item.prof || '')}.</p>` + (recipeHtml(item.id, meta, price) || '<p class="dim">Its material list is not in the source data.</p>');
-  } else {
-    const src = sourceHtml(item.id, meta);
-    body = src ? `<ul>${src}</ul>` : '<p><b>Farmed, a quest reward, or sold by a vendor.</b> The data does not say which.</p>';
-  }
-  return `${body}<a href="${wowheadUrl(item.id)}" target="_blank" rel="noopener">See every way to get it on Wowhead</a>`;
-}
-
-async function renderProfit() {
-  if (!state.snap) return;
-  const seq = state.seq;
-  const meta = await ensureMeta(state.game);
-  if (seq !== state.seq || state.mode !== 'profit') return;
-  const minListings = Math.max(1, parseInt($('minListings').value, 10) || 1);
-  if (state.method === 'craft') {
-    const withReagents = Object.values((meta.sources && meta.sources.recipes) || {}).filter(r => r && r.r.length).length;
-    if (withReagents < 50 && !(meta.ext && Object.keys(meta.ext.craft).length)) {
-      $('cards').innerHTML = '';
-      setStatus('Crafted profits are not available for this game. Blizzard does not publish reagent lists for most current recipes, so the cost to craft cannot be worked out.');
-      return;
-    }
-  }
-  if (state.method === 'dungeon' && !meta.ext && !(meta.sources && Object.keys(meta.sources.drops || {}).length)) {
-    $('cards').innerHTML = '';
-    setStatus('No dungeon or raid drop data is available for this game.');
-    return;
-  }
-  const commodities = await loadCommodities();
-  if (seq !== state.seq || state.mode !== 'profit') return;
-  const list = computeProfits(state.method, minListings, meta, combinedItems(commodities));
-  const rawRates = await salesRates(7);
-  const rates = rawRates && rawRates.hours >= 1 ? rawRates : null;
-  if (seq !== state.seq || state.mode !== 'profit') return;
-  const price = new Map(combinedItems(commodities).map(e => [e.i, e]));
-  $('cards').innerHTML = list.map((it, i) => {
-    const sellLabel = it.recipe && it.recipe.q > 1 ? `Sells ${it.recipe.q} for` : 'Sells for';
-    const profitSpan = it.profit === null
-      ? `<span>After the 5% cut <b>${money(Math.round(it.revenue))}</b></span><span class="dim">Material cost unknown</span>`
-      : `<span class="good">Profit <b>${money(Math.round(it.profit))}</b></span>`;
-    return `<li class="card"><div class="rank">${i + 1}</div><div><div class="card-title">${iconHtml(it.id)}<button type="button" class="linkish" data-open="${it.id}"${qs(it.id)}>${esc(nameOf(it.id))}</button></div>` +
-      `<div class="pstats">${profitSpan}<span>${sellLabel} <b>${money(Math.round(it.sell))}</b></span>` +
-      (it.cost !== null && it.cost !== undefined && it.method === 'craft' ? `<span>Cost <b>${money(Math.round(it.cost))}</b></span>` : '') +
-      `<span>Listings <b>${it.n.toLocaleString()}</b></span><span>For sale <b>${it.q.toLocaleString()}</b></span>` +
-      (rates && rates.map.has(it.id) ? `<span>Sells about <b>${fmtRate(rates.map.get(it.id).perDay)}</b> a day</span>` : '') +
-      `</div>` +
-      `<div class="how">${howHtml(it, meta, price)}</div></div></li>`;
-  }).join('');
-  const realm = state.snap.realms.join(' / ');
-  const unknownCost = list.some(it => it.profit === null);
-  setStatus(!list.length
-    ? `${realm}: nothing matched. Try lowering Min listings or pick another tab above.`
-    : unknownCost
-      ? `${realm}: crafted items ranked by sell price after the auction house cut. Material costs are unknown because the materials are not listed on this server. Updated ${ago(state.snap.u)}.`
-      : `${realm}: top ${list.length} by estimated profit per item. Updated ${ago(state.snap.u)}.`);
 }
 
 const salesCache = new Map();
@@ -2429,7 +2288,6 @@ function refresh() {
   else if (state.mode === 'harvest') renderHarvest();
   else if (state.mode === 'dungeon' || state.mode === 'raid') renderDrops();
   else if (state.mode === 'craft') renderCraft();
-  else if (state.mode === 'profit') renderProfit();
   else if (state.mode === 'sales') renderSales();
   else if (state.mode === 'profs') renderProfs();
   else render();
@@ -2440,7 +2298,6 @@ function setMode(mode) {
   store.set('ah.tab', mode);
   document.body.classList.toggle('alt-mode', mode !== 'listings');
   $('listingsPanel').hidden = mode !== 'listings';
-  $('profitPanel').hidden = mode !== 'profit';
   $('salesPanel').hidden = mode !== 'sales';
   $('profsPanel').hidden = mode !== 'profs';
   $('craftPanel').hidden = mode !== 'craft';
@@ -2454,7 +2311,6 @@ function setMode(mode) {
   $('tabRaid').setAttribute('aria-selected', String(mode === 'raid'));
   $('tabProfs').setAttribute('aria-selected', String(mode === 'profs'));
   $('tabListings').setAttribute('aria-selected', String(mode === 'listings'));
-  $('tabProfit').setAttribute('aria-selected', String(mode === 'profit'));
   $('tabSales').setAttribute('aria-selected', String(mode === 'sales'));
   const sel = document.querySelector('.tabs [aria-selected="true"]');
   const bar = document.querySelector('.tabs');
@@ -2466,7 +2322,6 @@ function setMode(mode) {
 }
 
 $('tabListings').addEventListener('click', () => setMode('listings'));
-$('tabProfit').addEventListener('click', () => setMode('profit'));
 $('tabSales').addEventListener('click', () => setMode('sales'));
 $('tabProfs').addEventListener('click', () => setMode('profs'));
 $('tabCraft').addEventListener('click', () => setMode('craft'));
@@ -2573,12 +2428,6 @@ document.addEventListener('click', ev => {
   const b = ev.target.closest('[data-open]');
   if (b) openDetail(Number(b.dataset.open));
 });
-document.querySelectorAll('.chip[data-method]').forEach(chip => chip.addEventListener('click', () => {
-  state.method = chip.dataset.method;
-  store.set('ah.method', state.method);
-  document.querySelectorAll('.chip[data-method]').forEach(c => c.setAttribute('aria-pressed', String(c === chip)));
-  renderProfit();
-}));
 document.querySelectorAll('.chip.win').forEach(chip => chip.addEventListener('click', () => {
   state.win = Number(chip.dataset.win);
   document.querySelectorAll('.chip.win').forEach(c => c.setAttribute('aria-pressed', String(c === chip)));
@@ -2589,11 +2438,6 @@ document.querySelectorAll('.chip.rank-by').forEach(chip => chip.addEventListener
   document.querySelectorAll('.chip.rank-by').forEach(c => c.setAttribute('aria-pressed', String(c === chip)));
   renderSales();
 }));
-let listingsTimer = null;
-$('minListings').addEventListener('input', () => {
-  clearTimeout(listingsTimer);
-  listingsTimer = setTimeout(renderProfit, 200);
-});
 
 $('game').addEventListener('change', () => onGame(false));
 $('region').addEventListener('change', () => onRegion(false));
@@ -2649,13 +2493,8 @@ $('chart').addEventListener('touchmove', chartHover, { passive: true });
 $('chart').addEventListener('mouseleave', () => { if (chartPoints.length) drawChart(); });
 window.addEventListener('resize', () => { if ($('detail').open) drawChart(); });
 
-const savedMethod = store.get('ah.method');
-if (['craft', 'gather', 'dungeon', 'other'].includes(savedMethod)) {
-  state.method = savedMethod;
-  document.querySelectorAll('.chip[data-method]').forEach(c => c.setAttribute('aria-pressed', String(c.dataset.method === savedMethod)));
-}
 const savedTab = store.get('ah.tab');
-if (savedTab === 'profit' || savedTab === 'sales' || savedTab === 'profs' || ['craft', 'harvest', 'dungeon', 'raid', 'pvp'].includes(savedTab)) setMode(savedTab);
+if (savedTab === 'sales' || savedTab === 'profs' || ['craft', 'harvest', 'dungeon', 'raid', 'pvp'].includes(savedTab)) setMode(savedTab);
 init();
 </script>
 </body>

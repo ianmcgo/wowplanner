@@ -375,3 +375,6 @@ These were built from documentation and forum reports, then tested against a moc
 ## Ticker look
 - The label box on the left ("24h moves", "5h moves", "Other servers") was removed, so the moving items fill the whole bar. The scroll bar is hidden.
 - The ticker scrolls on its own even when the system asks for reduced motion (it used to stop and turn into a hand-scrolled strip). It still pauses while the mouse is over it.
+
+## Top 10 profits tab removed
+- The Top 10 profits tab (gathered, dungeon drops, crafted and other) was removed with its code. Crafting profit, Harvesting, Dungeon drops and Raid drops cover the same ground per profession and per instance. Earlier notes about that tab are history only. A saved tab of `profit` now opens Listings.
