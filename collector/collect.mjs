@@ -257,6 +257,10 @@ async function fetchRealmAuctions(game, base, ns, id) {
   if (entry) entry.plain = shape(data);
   if (!data) return null;
   const list = data.auctions || [];
+  if (entry && list.length) {
+    entry.sampleAuctions = list.slice(0, 2).map(a => JSON.stringify(a).slice(0, 400));
+    entry.auctionKeys = [...new Set(list.slice(0, 500).flatMap(a => Object.keys(a)))];
+  }
   const href = data.commodities && data.commodities.href;
   if (entry) entry.commoditiesHref = href || null;
   if (href && /connected-realm\/\d+/.test(href)) {
