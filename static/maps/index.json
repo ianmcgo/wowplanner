@@ -1203,6 +1203,76 @@
    "src": "zone",
    "name": "Bronze Dragonshrine",
    "kb": 112
+  },
+  "5799": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Eye of the Storm",
+   "kb": 106
+  },
+  "5844": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Hour of Twilight",
+   "kb": 175
+  },
+  "5892": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Dragon Soul",
+   "kb": 145
+  },
+  "6051": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Temple of Kotmogu",
+   "kb": 99
+  },
+  "6328": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Assault on Zanvess",
+   "kb": 108
+  },
+  "6386": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Chapel Gardens",
+   "kb": 103
+  },
+  "6449": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Temple of Kotmogu",
+   "kb": 100
+  },
+  "6565": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Dagger in the Dark",
+   "kb": 88
+  },
+  "6567": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Battle on the High Seas",
+   "kb": 139
+  },
+  "6575": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Krasarang Wilds",
+   "kb": 101
   }
  },
  "instances": {
@@ -1456,6 +1526,20 @@
    "h": 668,
    "src": "zone",
    "kb": 124
+  },
+  "Hour of Twilight": {
+   "img": "z5844",
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "kb": 175
+  },
+  "Dragon Soul": {
+   "img": "z5892",
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "kb": 145
   }
  }
 }
