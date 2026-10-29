@@ -15,10 +15,22 @@ const step = (name, info) => {
   console.log(name, JSON.stringify(info));
 };
 
+const wait = ms => new Promise(r => setTimeout(r, ms));
+
 async function get(url, type) {
-  const res = await fetch(url, { headers: { 'User-Agent': 'wowplanner-recipe-builder (github.com/ianmcgo/wowplanner)' } });
-  if (!res.ok) throw new Error(`${res.status} ${url}`);
-  return type === 'json' ? res.json() : res.text();
+  let last = null;
+  for (let attempt = 0; attempt < 5; attempt++) {
+    try {
+      const res = await fetch(url, { headers: { 'User-Agent': 'wowplanner-recipe-builder (github.com/ianmcgo/wowplanner)' } });
+      if (res.ok) return type === 'json' ? res.json() : res.text();
+      last = new Error(`${res.status} ${url}`);
+      if (res.status < 500 && res.status !== 429) throw last;
+    } catch (err) {
+      last = err;
+    }
+    await wait(5000 * (attempt + 1));
+  }
+  throw last;
 }
 
 export function parseCsv(text) {
@@ -89,15 +101,13 @@ const col = (row, ...names) => {
 async function main() {
   const { product, version } = await pickBuild();
   step('build', { product, version });
-  const [skillLines, abilities, effects, reagents, spellNames, items, itemBase] = await Promise.all([
-    table('SkillLine', version),
-    table('SkillLineAbility', version),
-    table('SpellEffect', version),
-    table('SpellReagents', version),
-    table('SpellName', version),
-    table('ItemSparse', version),
-    table('Item', version)
-  ]);
+  const skillLines = await table('SkillLine', version);
+  const abilities = await table('SkillLineAbility', version);
+  const effects = await table('SpellEffect', version);
+  const reagents = await table('SpellReagents', version);
+  const spellNames = await table('SpellName', version);
+  const items = await table('ItemSparse', version);
+  const itemBase = await table('Item', version);
 
   const PROFESSIONS = new Set([164, 165, 171, 182, 185, 186, 197, 202, 333, 393, 755, 773, 129, 356]);
   const lineName = new Map();
