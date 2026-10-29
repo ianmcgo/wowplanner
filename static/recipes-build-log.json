@@ -1,5 +1,5 @@
 {
- "started": "2026-10-29T15:25:56.653Z",
+ "started": "2026-10-29T15:41:01.401Z",
  "steps": [
   {
    "name": "products",
@@ -18,11 +18,22 @@
    "version": "5.5.4.70631"
   },
   {
-   "name": "table SpellName",
-   "rows": 98183,
+   "name": "table SkillLine",
+   "rows": 174,
    "columns": [
+    "DisplayName_lang",
+    "AlternateVerb_lang",
+    "Description_lang",
+    "HordeDisplayName_lang",
+    "NeutralDisplayName",
     "ID",
-    "Name_lang"
+    "CategoryID",
+    "SpellIconFileID",
+    "CanLink",
+    "ParentSkillLineID",
+    "ParentTierIndex",
+    "Flags",
+    "SpellBookSpellID"
    ]
   },
   {
@@ -50,46 +61,11 @@
    ]
   },
   {
-   "name": "table SkillLine",
-   "rows": 174,
-   "columns": [
-    "DisplayName_lang",
-    "AlternateVerb_lang",
-    "Description_lang",
-    "HordeDisplayName_lang",
-    "NeutralDisplayName",
-    "ID",
-    "CategoryID",
-    "SpellIconFileID",
-    "CanLink",
-    "ParentSkillLineID",
-    "ParentTierIndex",
-    "Flags",
-    "SpellBookSpellID"
-   ]
-  },
-  {
-   "name": "table SpellReagents",
-   "rows": 6781,
+   "name": "table SpellName",
+   "rows": 98183,
    "columns": [
     "ID",
-    "SpellID",
-    "Reagent_0",
-    "Reagent_1",
-    "Reagent_2",
-    "Reagent_3",
-    "Reagent_4",
-    "Reagent_5",
-    "Reagent_6",
-    "Reagent_7",
-    "ReagentCount_0",
-    "ReagentCount_1",
-    "ReagentCount_2",
-    "ReagentCount_3",
-    "ReagentCount_4",
-    "ReagentCount_5",
-    "ReagentCount_6",
-    "ReagentCount_7"
+    "Name_lang"
    ]
   },
   {
@@ -163,53 +139,9 @@
     "StatPercentEditor_6",
     "StatPercentEditor_7"
    ]
-  },
-  {
-   "name": "profession spells",
-   "count": 5501
-  },
-  {
-   "name": "create item spells",
-   "count": 4708
-  },
-  {
-   "name": "spells with reagents",
-   "count": 4706
-  },
-  {
-   "name": "price columns",
-   "columns": [
-    "Stackable",
-    "SellPrice",
-    "BuyPrice",
-    "VendorStackCount",
-    "PriceVariance",
-    "PriceRandomValue"
-   ]
-  },
-  {
-   "name": "vendor prices",
-   "wanted": 12998,
-   "priced": 9603
-  },
-  {
-   "name": "done",
-   "recipes": 4662,
-   "byProfession": {
-    "Alchemy": 310,
-    "Cooking": 272,
-    "Inscription": 587,
-    "First Aid": 22,
-    "Leatherworking": 900,
-    "Tailoring": 629,
-    "Mining": 31,
-    "Blacksmithing": 828,
-    "Engineering": 355,
-    "Enchanting": 29,
-    "Jewelcrafting": 699
-   }
   }
  ],
- "ok": true,
- "finished": "2026-10-29T15:26:12.959Z"
+ "ok": false,
+ "error": "Error: 522 https://wago.tools/db2/SpellReagents/csv?build=5.5.4.70631\n    at get (file:///home/runner/work/wowplanner/wowplanner/tools/build-recipes.mjs:20:22)\n    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at async table (file:///home/runner/work/wowplanner/wowplanner/tools/build-recipes.mjs:78:16)\n    at async Promise.all (index 3)\n    at async main (file:///home/runner/work/wowplanner/wowplanner/tools/build-recipes.mjs:92:83)\n    at async file:///home/runner/work/wowplanner/wowplanner/tools/build-recipes.mjs:226:5",
+ "finished": "2026-10-29T15:41:22.259Z"
 }
