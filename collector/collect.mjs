@@ -20,6 +20,7 @@ const RECIPE_FETCH_CAP = Number(env.RECIPE_FETCH_CAP || 6000);
 const SOURCES_REFRESH_HOURS = Number(env.SOURCES_REFRESH_HOURS || 72);
 const SOURCES_VERSION = 2;
 const CATS_VERSION = 2;
+const TIPS_VERSION = 1;
 const diagnostics = {};
 const commodityHref = new Map();
 const KNOWN_REGIONS = ['us', 'eu', 'kr', 'tw'];
@@ -412,6 +413,7 @@ async function loadMeta(game) {
   return {
     names: (await readJson(path.join(dir, 'items.json'))) || {},
     cats: info.catsVersion === CATS_VERSION ? (await readJson(path.join(dir, 'cats.json'))) || {} : {},
+    tips: info.tipsVersion === TIPS_VERSION ? ((await readGz(path.join(dir, 'tooltips.json.gz'))) || {}) : {},
     iconBase: icons.base || null,
     icons: icons.icons || {},
     staticNs: null
@@ -423,7 +425,8 @@ async function saveMeta(game, meta) {
   await writeJson(path.join(dir, 'items.json'), meta.names);
   await writeJson(path.join(dir, 'cats.json'), meta.cats);
   await writeJson(path.join(dir, 'icons.json'), { base: meta.iconBase, icons: meta.icons });
-  await writeJson(path.join(dir, 'meta.json'), { catsVersion: CATS_VERSION, staticNs: meta.staticNs });
+  await writeGz(path.join(dir, 'tooltips.json.gz'), meta.tips);
+  await writeJson(path.join(dir, 'meta.json'), { catsVersion: CATS_VERSION, tipsVersion: TIPS_VERSION, staticNs: meta.staticNs });
 }
 
 async function probeStatic(game, region, base, meta) {
@@ -487,10 +490,57 @@ function categoryOf(item) {
   return 'other';
 }
 
+function rgb(c) {
+  if (!c || typeof c.r !== 'number') return null;
+  const h = n => Math.max(0, Math.min(255, Math.round(n))).toString(16).padStart(2, '0');
+  return '#' + h(c.r) + h(c.g) + h(c.b);
+}
+
+function tooltipOf(item) {
+  const p = item.preview_item;
+  if (!p) return null;
+  const lines = [];
+  const add = (text, color, right) => {
+    if (!text) return;
+    lines.push(right ? [String(text), color || null, String(right)] : [String(text), color || null]);
+  };
+  const ds = x => (x && (x.display_string || (x.display && x.display.display_string))) || '';
+  if (p.level && p.level.display_string) add(p.level.display_string, '#ffd100');
+  if (p.binding) add(localName(p.binding.name));
+  if (p.unique_equipped) add(p.unique_equipped);
+  const slot = p.inventory_type && p.inventory_type.type !== 'NON_EQUIP' ? localName(p.inventory_type.name) : '';
+  const sub = p.item_subclass && !p.is_subclass_hidden ? localName(p.item_subclass.name) : '';
+  if (slot) add(slot, null, sub);
+  if (p.weapon) {
+    add(ds(p.weapon.damage), null, ds(p.weapon.attack_speed));
+    add(ds(p.weapon.dps));
+  }
+  if (p.armor) add(ds(p.armor), rgb(p.armor.display && p.armor.display.color));
+  if (p.shield_block) add(ds(p.shield_block));
+  for (const st of p.stats || []) add(ds(st), rgb(st.display && st.display.color));
+  if (p.container_slots) add(ds(p.container_slots));
+  if (p.durability) add(ds(p.durability));
+  const req = p.requirements || {};
+  for (const k of ['playable_classes', 'playable_races', 'level', 'skill', 'reputation', 'ability']) {
+    if (req[k]) add(ds(req[k]));
+  }
+  for (const sp of p.spells || []) add(sp.description, rgb(sp.display_color) || '#1eff00');
+  if (p.set) {
+    add(ds(p.set), '#ffd100');
+    for (const it of p.set.items || []) add('  ' + localName(it.item && it.item.name), it.is_equipped ? '#ffff98' : '#9d9d9d');
+    for (const e of p.set.effects || []) add(ds(e), e.is_active ? '#1eff00' : '#9d9d9d');
+  }
+  if (p.recipe && p.recipe.reagents_display_string) add(p.recipe.reagents_display_string);
+  if (p.crafting_reagent) add(p.crafting_reagent, '#66bbff');
+  if (p.description) add(`"${p.description}"`, '#ffd100');
+  const sell = (p.sell_price && p.sell_price.value) || item.sell_price || null;
+  return { q: (p.quality && p.quality.type) || (item.quality && item.quality.type) || null, l: lines, s: sell };
+}
+
 async function resolveItemNames(game, region, base, seen, meta) {
   const ns = meta.staticNs || game.static.replace('{r}', region);
   const missing = [...seen.entries()]
-    .filter(([id]) => !(id in meta.names) || !(id in meta.cats))
+    .filter(([id]) => !(id in meta.names) || !(id in meta.cats) || !(id in meta.tips))
     .sort((a, b) => b[1] - a[1])
     .slice(0, ITEM_LOOKUPS)
     .map(([id]) => id);
@@ -501,9 +551,11 @@ async function resolveItemNames(game, region, base, seen, meta) {
         if (!meta.names[id] && item.name) meta.names[id] = localName(item.name);
         else if (!(id in meta.names)) meta.names[id] = null;
         meta.cats[id] = categoryOf(item);
+        meta.tips[id] = tooltipOf(item);
       } else {
         if (!(id in meta.names)) meta.names[id] = null;
         meta.cats[id] = null;
+        meta.tips[id] = null;
       }
     } catch (err) {
       log('item lookup failed', id, err.message);

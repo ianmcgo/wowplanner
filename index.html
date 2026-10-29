@@ -159,6 +159,9 @@ canvas { width: 100%; height: 220px; display: block; background: var(--panel-2);
 .tabs button { border-radius: 10px; padding: 9px 16px; background: transparent; color: var(--dim); }
 .tabs button[aria-selected="true"] { background: var(--panel-2); color: var(--text); border-color: var(--accent); }
 .alt-mode .lf { display: none; }
+.wtt { background: #070b1d; border: 1px solid #4b5a8f; border-radius: 6px; padding: 10px 12px; margin: 6px 0 14px; color: #fff; font-size: .9rem; line-height: 1.4; }
+.wtt .r { display: flex; justify-content: space-between; gap: 16px; }
+.wtt .sell { margin-top: 4px; }
 .ico { width: 22px; height: 22px; border-radius: 4px; vertical-align: middle; margin-right: 8px; border: 1px solid var(--line); background: var(--panel-2); object-fit: cover; }
 .ico.lg { width: 34px; height: 34px; margin-right: 10px; }
 .ico-blank { display: inline-block; }
@@ -308,12 +311,13 @@ footer p { margin: 4px 0; }
 <dialog id="detail" aria-labelledby="dlgTitle">
   <div class="dlg-head">
     <div>
-      <h2><img id="dlgIcon" class="ico lg" alt="" hidden><span id="dlgTitle"></span></h2>
+      <h2><img id="dlgIcon" class="ico lg" alt="" hidden onerror="this.hidden=true"><span id="dlgTitle"></span></h2>
       <a id="dlgLink" target="_blank" rel="noopener">View on Wowhead</a>
     </div>
     <button id="dlgClose" type="button">Close</button>
   </div>
   <div class="dlg-body">
+    <div class="wtt" id="dlgTip" hidden></div>
     <div class="stats" id="dlgStats"></div>
     <h3>Cheapest listings</h3>
     <table class="mini" id="listingsTable">
@@ -426,6 +430,28 @@ function setStatus(text, isError) {
 }
 
 const iconCache = new Map();
+const tipCache = new Map();
+const QUALITY_COLOR = { POOR: '#9d9d9d', COMMON: '#ffffff', UNCOMMON: '#1eff00', RARE: '#0070dd', EPIC: '#a335ee', LEGENDARY: '#ff8000', ARTIFACT: '#e6cc80', HEIRLOOM: '#00ccff' };
+
+function ensureTips(game) {
+  if (!tipCache.has(game)) tipCache.set(game, fetchData(`${game}/tooltips.json.gz`).catch(() => null));
+  return tipCache.get(game);
+}
+
+function renderTip(tip) {
+  const el = $('dlgTip');
+  if (!tip || !Array.isArray(tip.l) || (!tip.l.length && !tip.s)) {
+    el.hidden = true;
+    return;
+  }
+  const color = c => (typeof c === 'string' && /^#[0-9a-f]{6}$/i.test(c) ? ` style="color:${c}"` : '');
+  el.innerHTML = tip.l.map(([t, c, r]) => (r
+    ? `<div class="r"><span${color(c)}>${esc(t)}</span><span>${esc(r)}</span></div>`
+    : `<div${color(c)}>${esc(t)}</div>`)).join('') +
+    (tip.s ? `<div class="sell">Sell Price: ${money(tip.s)}</div>` : '');
+  el.hidden = false;
+  $('dlgTitle').style.color = QUALITY_COLOR[tip.q] || '';
+}
 
 function iconUrl(id) {
   const ic = state.icons && state.icons.icons ? state.icons.icons[id] : null;
@@ -675,6 +701,13 @@ function openDetail(id) {
   const e = state.snap.items.find(x => x.i === id);
   if (!e) return;
   $('dlgTitle').textContent = nameOf(id);
+  $('dlgTitle').style.color = '';
+  $('dlgTip').hidden = true;
+  state.openId = id;
+  const tipGame = state.game;
+  ensureTips(tipGame).then(tips => {
+    if (state.openId === id && state.game === tipGame && $('detail').open) renderTip(tips && tips[id]);
+  });
   const dIcon = iconUrl(id);
   $('dlgIcon').hidden = !dIcon;
   if (dIcon) $('dlgIcon').src = dIcon;

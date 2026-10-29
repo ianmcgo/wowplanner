@@ -72,7 +72,20 @@ export function startMock(port) {
         id,
         name: `Test Item ${id}`,
         item_class: kind ? { id: 7, name: 'Trade Goods' } : { id: 2, name: 'Weapon' },
-        item_subclass: { id: 0, name: kind || 'Sword' }
+        item_subclass: { id: 0, name: kind || 'Sword' },
+        preview_item: {
+          quality: { type: 'RARE', name: 'Rare' },
+          level: { value: 60, display_string: 'Item Level 60' },
+          binding: { type: 'ON_EQUIP', name: 'Binds when equipped' },
+          inventory_type: { type: 'HEAD', name: 'Head' },
+          item_subclass: { name: 'Plate' },
+          armor: { value: 500, display: { display_string: '500 Armor', color: { r: 255, g: 255, b: 255, a: 1 } } },
+          stats: [{ value: 10, display: { display_string: '+10 Strength', color: { r: 255, g: 255, b: 255, a: 1 } } }],
+          spells: [{ description: 'Equip: Improves your chance to hit by 1%.', display_color: { r: 0, g: 255, b: 0, a: 1 } }],
+          requirements: { level: { value: 60, display_string: 'Requires Level 60' } },
+          sell_price: { value: 12345 },
+          description: 'Forged in mock fire.'
+        }
       });
     }
     m = /^\/data\/wow\/media\/item\/(\d+)$/.exec(p);

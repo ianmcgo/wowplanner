@@ -117,6 +117,13 @@ The tab works out profit in the browser from the selected server's latest prices
 - `icons.json` is `{ base, icons: { itemId: name } }`. The image address is `base + name + ".jpg"`, served from Blizzard's public render site. Values that do not share the base are stored as full addresses.
 - The page shows icons in the listings table, the item popup, profit cards and the fastest selling table. Missing icons show an empty square.
 
+## Item tooltips
+- When the collector looks up an item it also turns Blizzard's `preview_item` block into tooltip lines and saves them in `{game}/tooltips.json.gz`.
+- Format: `{ itemId: { q: quality, l: [[text, color, rightText?], ...], s: sell price in copper } }`. Colors come from Blizzard's data where given (stats, equip effects), otherwise item level and flavor text are gold and set pieces are grey.
+- Lines, in game order: item level, binding, unique, slot and type, weapon damage, speed and DPS, armor, block, stats, bag slots, durability, class, race, level, skill and reputation requirements, Equip/Use/Chance on hit effects, set name with pieces and bonuses, recipe materials, crafting reagent note, flavor text.
+- The item popup shows the tooltip in a WoW-style box above the stats, and colors the item name by quality.
+- `meta.json` holds `tipsVersion`. Raising `TIPS_VERSION` in `collect.mjs` makes the next run rebuild every tooltip.
+
 ## Fastest selling tab
 - Each run the collector saves every listing (auction id, item, quantity, time left) for each server in `state.bin.gz`, a compact binary file.
 - On the next run it compares the new listings with the saved ones:
