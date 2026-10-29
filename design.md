@@ -277,3 +277,6 @@ These were built from documentation and forum reports, then tested against a moc
 - **cmangos/classic-db** and **dkpminus/Classic-Wow-Database**: SQL world databases for patch 1.12 (original Classic). They have vendors, loot tables and spawn coordinates, but only for 1.12 content, and QuestieDB already covers MoP Classic with the same kind of data. Useful only if Classic Era auction data becomes available.
 - **WowUp**: an addon manager, with no item data.
 - Wowhead links on every item cover what the other sources do not.
+
+## Tab icon
+- `static/icons/favicon.svg` is the browser tab icon: a gold coin crossed by an auction gavel on a dark purple tile. `icon-32.png` is the fallback for browsers without SVG icons, and `icon-180.png` is the home screen icon on iPhone and iPad. The PNGs are screenshots of the SVG taken with Playwright, so redraw them after changing the SVG.
