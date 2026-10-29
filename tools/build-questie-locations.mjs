@@ -1,16 +1,17 @@
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import path from 'node:path';
+import { augmentFromMopDb } from './mopdb.mjs';
 
-const [dbDir, outFile, ratesFile] = process.argv.slice(2);
+const [dbDir, outFile, ratesFile, mopDbDir] = process.argv.slice(2);
 if (!dbDir || !outFile) {
-  console.error('Usage: node tools/build-questie-locations.mjs <QuestieDB checkout> static/mop-classic-locations.json');
+  console.error('Usage: node tools/build-questie-locations.mjs <QuestieDB checkout> static/mop-classic-locations.json [rates.json] [MoPDB World folder]');
   process.exit(1);
 }
 
 const MAX_VENDORS = 8;
 const MAX_DROPS = 25;
 const MAX_OBJECTS = 10;
-const MAX_ZONES = 3;
+const MAX_ZONES = 5;
 const MAX_POINTS = 15;
 
 function parseLua(src) {
@@ -128,6 +129,27 @@ const objects = await loadData(path.join(mop, 'mopObjectDB.lua'), 'QuestieDB.obj
 const zoneNames = await loadZones(path.join(dbDir, 'src', 'corrections', 'enum', 'zones.lua'));
 const dropRates = await loadData(path.join(dbDir, 'support', 'DropTables', 'mopItemDrops.lua'), 'QuestieMopItemDrops.wowheadData');
 const extRates = ratesFile ? JSON.parse(await readFile(ratesFile, 'utf8')).items : {};
+let catalogEarly = null;
+try {
+  catalogEarly = JSON.parse(await readFile(path.join(path.dirname(outFile), 'mop-classic-items.json'), 'utf8')).items;
+} catch {
+  catalogEarly = null;
+}
+const itemNames = catalogEarly ? Object.fromEntries(Object.entries(catalogEarly).map(([id, c]) => [id, c[0]])) : null;
+const aug = mopDbDir ? await augmentFromMopDb(mopDbDir, { npcs, objects, items, itemNames }) : null;
+const blankItem = () => {
+  const row = new Array(14).fill(null);
+  row[0] = '';
+  return row;
+};
+if (aug) {
+  for (const [id, r] of Object.entries(extRates)) {
+    if (!Array.isArray(items[id])) items[id] = blankItem();
+    for (const [n] of r.d) aug.ensureNpc(n);
+  }
+  for (const id of Object.keys(aug.skin)) if (!Array.isArray(items[id])) items[id] = blankItem();
+  console.log('MoPDB', JSON.stringify(aug.stats));
+}
 
 const out = { v: 1, built: new Date().toISOString(), license: 'Derived from QuestieDB and CMaNGOS (GPL-3.0); drop rates tagged ds=cata from the MaNGOS Three world database (CC BY-NC-SA 3.0)', zones: {}, npcs: {}, objects: {}, items: {} };
 const usedNpcs = new Set();
@@ -156,8 +178,14 @@ for (const [id, row] of Object.entries(items)) {
     .filter(n => npcs[n] && npcs[n][6])
     .sort((a, b) => rate(b) - rate(a));
   const objs = pick(row[2]).filter(o => objects[o] && objects[o][3]);
-  if (!vendors.length && !drops.length && !objs.length) continue;
+  const skins = aug && aug.skin[id] ? aug.skin[id].filter(([n]) => npcs[n] && npcs[n][6]) : [];
+  if (!vendors.length && !drops.length && !objs.length && !skins.length) continue;
   const entry = {};
+  if (skins.length) {
+    entry.k = skins.slice(0, MAX_DROPS).map(([n]) => n);
+    entry.kc = skins.slice(0, MAX_DROPS).map(([, c]) => c);
+    if (skins.length > MAX_DROPS) entry.kn = skins.length;
+  }
   if (vendors.length) entry.v = vendors.slice(0, MAX_VENDORS);
   if (drops.length) {
     entry.d = drops.slice(0, MAX_DROPS);
@@ -171,7 +199,7 @@ for (const [id, row] of Object.entries(items)) {
   }
   if (objs.length) entry.o = objs.slice(0, MAX_OBJECTS);
   out.items[id] = entry;
-  for (const n of [...(entry.v || []), ...(entry.d || [])]) usedNpcs.add(n);
+  for (const n of [...(entry.v || []), ...(entry.d || []), ...(entry.k || [])]) usedNpcs.add(n);
   for (const o of entry.o || []) usedObjects.add(o);
 }
 
@@ -200,7 +228,7 @@ const shards = Array.from({ length: SHARDS }, () => ({ items: {}, npcs: {}, obje
 for (const [id, entry] of Object.entries(out.items)) {
   const sh = shards[Number(id) % SHARDS];
   sh.items[id] = entry;
-  for (const n of [...(entry.v || []), ...(entry.d || [])]) if (out.npcs[n]) sh.npcs[n] = out.npcs[n];
+  for (const n of [...(entry.v || []), ...(entry.d || []), ...(entry.k || [])]) if (out.npcs[n]) sh.npcs[n] = out.npcs[n];
   for (const o of entry.o || []) if (out.objects[o]) sh.objects[o] = out.objects[o];
 }
 for (let k = 0; k < SHARDS; k++) await writeFile(path.join(outDir, `${k}.json`), JSON.stringify(shards[k]));
@@ -335,6 +363,16 @@ if (catalog) {
     if (c[5] === 9 && !HERB_SKIP.test(c[0]) && !(id in harvest.Herbalism)) harvest.Herbalism[id] = 0;
     if (c[5] === 7 && / ore$/i.test(c[0]) && !(id in harvest.Mining)) harvest.Mining[id] = 0;
   }
+}
+if (aug) {
+  for (const [id, list] of Object.entries(aug.skin)) {
+    const c = catalog && catalog[id];
+    if (c && c[4] === 7 && !SKIN_SKIP.test(c[0])) harvest.Skinning[id] = list.length;
+  }
+  const profSpells = Object.fromEntries(Object.entries(aug.trainers).filter(([, t]) => t[2] > 0));
+  await writeFile(path.join(path.dirname(outFile), 'trainer-costs.json'), JSON.stringify(profSpells));
+  await writeFile(path.join(path.dirname(outFile), 'vendor-extended-costs.json'), JSON.stringify(aug.vendorCosts));
+  console.log('trainer profession spells', Object.keys(profSpells).length, 'vendor cost items', Object.keys(aug.vendorCosts).length);
 }
 await writeFile(path.join(path.dirname(outFile), 'harvest-items.json'), JSON.stringify(harvest));
 console.log('harvest', Object.fromEntries(Object.entries(harvest).map(([k, v]) => [k, Object.keys(v).length])));

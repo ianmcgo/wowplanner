@@ -1,2 +1,6 @@
 collector/test/out/
 node_modules/
+static/mop-classic-items.json
+static/mop-classic-recipes.json
+static/currency-items.json
+static/recipes-build-log.json

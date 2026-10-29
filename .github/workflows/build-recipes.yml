@@ -6,6 +6,8 @@ on:
     paths:
       - .github/workflows/build-recipes.yml
       - tools/build-recipes.mjs
+      - static/vendor-items.json
+      - static/vendor-extended-costs.json
   schedule:
     - cron: '41 6 * * 1'
   workflow_dispatch:
@@ -14,7 +16,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: build-recipes
+  group: collect-auction-data
   cancel-in-progress: false
 
 jobs:
@@ -28,24 +30,26 @@ jobs:
         with:
           node-version: 22
 
-      - name: Build recipes from wago.tools
-        continue-on-error: true
-        run: node tools/build-recipes.mjs static/mop-classic-recipes.json static/recipes-build-log.json
-
-      - name: Commit results
+      - name: Restore previous data branch
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
+          git clone --quiet --depth=1 --branch data "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" data-out || mkdir -p data-out
+          mkdir -p data-out/static
+
+      - name: Build recipes from wago.tools
+        run: node tools/build-recipes.mjs data-out/static/mop-classic-recipes.json data-out/static/recipes-build-log.json static/vendor-items.json data-out/static/mop-classic-items.json static/vendor-extended-costs.json data-out/static/currency-items.json
+
+      - name: Publish data branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cd data-out
+          rm -rf .git
+          git init --quiet -b data
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          for f in static/mop-classic-recipes.json static/recipes-build-log.json static/mop-classic-items.json static/currency-items.json; do
-            if [ -f "$f" ]; then git add "$f"; fi
-          done
-          if git diff --cached --quiet; then
-            echo "No changes"
-            exit 0
-          fi
-          git commit -m "Update recipe data"
-          for i in 1 2 3; do
-            git pull --rebase origin main && git push origin HEAD:main && exit 0
-            sleep 5
-          done
-          exit 1
+          git add -A
+          git commit --quiet -m "Recipe data $(date -u +%Y-%m-%dT%H:%MZ)"
+          git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git"
+          git push --force origin data

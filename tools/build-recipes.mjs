@@ -110,6 +110,18 @@ async function main() {
   const spellNames = await table('SpellName', version);
   const items = await table('ItemSparse', version);
   const itemBase = await table('Item', version);
+  let itemEffects = null;
+  let itemXEffects = null;
+  try {
+    itemEffects = await table('ItemEffect', version);
+  } catch (err) {
+    step('ItemEffect failed', { error: String(err.message || err) });
+  }
+  try {
+    itemXEffects = await table('ItemXItemEffect', version);
+  } catch (err) {
+    step('ItemXItemEffect not available', { error: String(err.message || err).slice(0, 120) });
+  }
   let extCosts = null;
   let currencyTypes = null;
   try {
@@ -194,6 +206,50 @@ async function main() {
       if (n && !names[id]) names[id] = n;
     }
   }
+  const learns = new Map();
+  for (const e of effects) {
+    if (Number(col(e, 'Effect')) !== 36) continue;
+    const trig = Number(col(e, 'EffectTriggerSpell', 'EffectTriggerSpell_0') || 0);
+    if (trig) learns.set(Number(col(e, 'SpellID')), trig);
+  }
+  const spellCrafts = new Map();
+  for (const [spell, made] of creates) if (mats.has(spell)) spellCrafts.set(spell, made.item);
+  const teach = {};
+  if (itemEffects) {
+    const effectSpell = new Map();
+    const itemSpells = new Map();
+    for (const e of itemEffects) {
+      const spell = Number(col(e, 'SpellID') || 0);
+      effectSpell.set(Number(e.ID), spell);
+      const parent = Number(col(e, 'ParentItemID') || 0);
+      if (parent && spell) {
+        if (!itemSpells.has(parent)) itemSpells.set(parent, []);
+        itemSpells.get(parent).push(spell);
+      }
+    }
+    if (itemXEffects) {
+      for (const x of itemXEffects) {
+        const item = Number(col(x, 'ItemID') || 0);
+        const spell = effectSpell.get(Number(col(x, 'ItemEffectID') || 0));
+        if (!item || !spell) continue;
+        if (!itemSpells.has(item)) itemSpells.set(item, []);
+        itemSpells.get(item).push(spell);
+      }
+    }
+    for (const [item, spells] of itemSpells) {
+      for (const sp of spells) {
+        const target = spellCrafts.has(sp) ? sp : learns.has(sp) && spellCrafts.has(learns.get(sp)) ? learns.get(sp) : null;
+        if (!target) continue;
+        const crafted = spellCrafts.get(target);
+        teach[item] = crafted;
+        const r = recipes[crafted];
+        if (r && r.spell === target && !r.by) r.by = item;
+        const n = itemName.get(item);
+        if (n && !names[item]) names[item] = n;
+      }
+    }
+  }
+  step('recipe items', { learnSpells: learns.size, teaches: Object.keys(teach).length, recipesWithItem: Object.values(recipes).filter(r => r.by).length, itemEffectColumns: itemEffects && itemEffects[0] ? Object.keys(itemEffects[0]) : [] });
   let vendorIds = [];
   try {
     vendorIds = JSON.parse(await readFile(vendorListFile, 'utf8'));
@@ -277,7 +333,7 @@ async function main() {
     step('currency items', { extCostColumns: extCosts[0] ? Object.keys(extCosts[0]) : [], currencyColumns: currencyTypes[0] ? Object.keys(currencyTypes[0]).slice(0, 12) : [], items: Object.keys(curItems).length, honorItems, currencies, sample: Object.entries(curItems).filter(([, o]) => o.some(([c]) => c.some(([cid]) => cid === 392))).slice(0, 5) });
     await writeFile(currencyFile, JSON.stringify({ v: 1, built: new Date().toISOString(), source: `wago.tools ${product} ${version} ItemExtendedCost and CurrencyTypes; vendor lists from the MaNGOS Four database (GPL-3.0)`, currencies, items: curItems }));
   }
-  const out = { v: 1, built: new Date().toISOString(), source: `wago.tools ${product} ${version}`, recipes, names, buy };
+  const out = { v: 1, built: new Date().toISOString(), source: `wago.tools ${product} ${version}`, recipes, names, buy, teach };
   await mkdir(path.dirname(outFile), { recursive: true });
   await writeFile(outFile, JSON.stringify(out));
   const byProf = {};

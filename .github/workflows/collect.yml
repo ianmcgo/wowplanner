@@ -48,6 +48,7 @@ jobs:
           BLIZZARD_CLIENT_ID: ${{ secrets.BLIZZARD_CLIENT_ID }}
           BLIZZARD_CLIENT_SECRET: ${{ secrets.BLIZZARD_CLIENT_SECRET }}
           OUT_DIR: data-out
+          CATALOG_FILE: data-out/static/mop-classic-items.json
           GAMES: ${{ github.event.inputs.games || 'classic,classic1x,classicann' }}
           REGIONS: ${{ github.event.inputs.regions || 'us' }}
         run: node collector/collect.mjs

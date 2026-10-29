@@ -573,7 +573,7 @@ footer p { margin: 4px 0; }
     <p>Created by Ian McGonigal &middot; <a href="https://ianmcgo.github.io/website/" target="_blank" rel="noopener">Website</a> &middot; <a href="https://www.patreon.com/cw/ianmcg" target="_blank" rel="noopener">Patreon</a></p>
     <p>Fan-made tool, not affiliated with Blizzard Entertainment. Data comes from the Battle.net Game Data API.</p>
     <p>Item sources and recipes from <a href="https://github.com/Napalmsteak/WoW-Classic-Item-Caches" target="_blank" rel="noopener">WoW Classic Item Caches</a> by Napalmsteak, used with permission.</p>
-    <p>Vendor, drop and spawn locations derived from <a href="https://github.com/Questie/QuestieDB" target="_blank" rel="noopener">QuestieDB</a> (GPLv3). Drop chances also from the <a href="https://github.com/cmangos" target="_blank" rel="noopener">CMaNGOS</a> databases (GPLv3) and the <a href="https://github.com/mangosthree/database" target="_blank" rel="noopener">MaNGOS Three</a> world database (CC BY-NC-SA 3.0). Vendor currency costs matched using the <a href="https://github.com/mangosfour/database" target="_blank" rel="noopener">MaNGOS Four</a> database (GPLv3).</p>
+    <p>Vendor, drop and spawn locations derived from <a href="https://github.com/Questie/QuestieDB" target="_blank" rel="noopener">QuestieDB</a> (GPLv3). Drop chances also from the <a href="https://github.com/cmangos" target="_blank" rel="noopener">CMaNGOS</a> databases (GPLv3) and the <a href="https://github.com/mangosthree/database" target="_blank" rel="noopener">MaNGOS Three</a> world database (CC BY-NC-SA 3.0). Mists of Pandaria drop chances, spawns, skinning, vendor and trainer data from <a href="https://github.com/Several/MoPDB" target="_blank" rel="noopener">MoPDB</a>.</p>
   </div>
 </footer>
 
@@ -776,6 +776,7 @@ function factionTag(f) {
   if (f === 'A') return '<span class="fac a">Alliance</span>';
   if (f === 'H') return '<span class="fac h">Horde</span>';
   if (f === 'AH' || f === 'HA') return '<span class="fac">Both factions</span>';
+  if (f === 'unknown') return '';
   return '<span class="fac">Hostile</span>';
 }
 
@@ -790,6 +791,7 @@ function mapSvg(zone, pts) {
 const locState = { list: [], sel: 0, zone: null };
 const RATE_SOURCE = {
   mop: 'Questie (Wowhead MoP Classic data)',
+  mopdb: 'MoPDB (a Mists of Pandaria 5.4.7 server database)',
   cata: 'the MaNGOS Three database (Cataclysm era)',
   wotlk: 'the CMaNGOS Wrath database',
   tbc: 'the CMaNGOS TBC database',
@@ -843,6 +845,7 @@ async function fillLocations(id) {
   };
   const gather = (entry.o || []).filter(o => objRole(o) !== 'Found in');
   gather.forEach(o => add([o], 'object', objRole(o)));
+  add(entry.k, 'npc', 'Skinned from (Skinning)', entry.kc);
   add(entry.v, 'npc', 'Sold by');
   add(entry.d, 'npc', 'Dropped by', entry.dc);
   (entry.o || []).filter(o => !gather.includes(o)).forEach(o => add([o], 'object', 'Found in'));
@@ -859,19 +862,19 @@ async function fillLocations(id) {
     const lvl = src.min && src.role !== 'Sold by' ? ` \u00b7 level ${src.min}${src.max && src.max !== src.min ? '-' + src.max : ''}` : '';
     const extra = src.kind === 'npc' ? `${src.sub ? ` &lt;${esc(src.sub)}&gt;` : ''}${src.role === 'Sold by' ? factionTag(src.fac) : ''}` : '';
     const pts = Object.values(src.spawns).reduce((n, p) => n + p.length, 0);
-    const pct = src.chance !== null && src.chance !== undefined ? `<span class="pct">${src.chance < 1 ? src.chance.toFixed(2) : src.chance < 10 ? src.chance.toFixed(1) : Math.round(src.chance)}% drop chance</span>` : '';
+    const pct = src.chance !== null && src.chance !== undefined ? `<span class="pct">${src.chance < 1 ? src.chance.toFixed(2) : src.chance < 10 ? src.chance.toFixed(1) : Math.round(src.chance)}% ${src.role.startsWith('Skinned') ? 'chance' : 'drop chance'}</span>` : '';
     return `<li${hide ? ' class="more" hidden' : ''}><button type="button" data-loc="${k}" aria-pressed="${String(k === 0)}">${esc(src.name)}${extra}${pct}<div class="sub">${esc(zones)}${esc(lvl)} \u00b7 ${pts} spawn point${pts === 1 ? '' : 's'}</div></button></li>`;
   };
   let html = '';
   let groupNo = 0;
-  for (const role of ['Gathered from (Herbalism)', 'Mined from (Mining)', 'Sold by', 'Dropped by', 'Found in']) {
+  for (const role of ['Gathered from (Herbalism)', 'Mined from (Mining)', 'Skinned from (Skinning)', 'Sold by', 'Dropped by', 'Found in']) {
     const rows = list.map((src, k) => [src, k]).filter(([src]) => src.role === role);
     if (!rows.length) continue;
-    const of = role === 'Dropped by' && entry.dn ? ` (top ${rows.length} of ${entry.dn})` : ` (${rows.length})`;
+    const of = role === 'Dropped by' && entry.dn ? ` (top ${rows.length} of ${entry.dn})` : role.startsWith('Skinned') && entry.kn ? ` (top ${rows.length} of ${entry.kn})` : ` (${rows.length})`;
     const vu = role === 'Sold by' ? vendorUnit(id, state.ext, vend) : null;
     const vb = vu !== null && state.ext.buy[id];
     const vendNote = vu !== null ? `<div class="sub rate-src">Vendor price: ${money(Math.round(Array.isArray(vb) ? vb[0] : vb))}${Array.isArray(vb) ? ` for ${vb[1]}` : ''}</div>` : '';
-    const note = role === 'Sold by' ? vendNote : role === 'Dropped by' && entry.ds ? `<div class="sub rate-src">Drop chances from ${esc(RATE_SOURCE[entry.ds] || entry.ds)}${entry.ds === 'mop' ? '' : '. Rates may differ in MoP Classic'}.</div>` : '';
+    const note = role === 'Sold by' ? vendNote : role === 'Dropped by' && entry.ds ? `<div class="sub rate-src">Drop chances from ${esc(RATE_SOURCE[entry.ds] || entry.ds)}${entry.ds === 'mop' || entry.ds === 'mopdb' ? '' : '. Rates may differ in MoP Classic'}.</div>` : '';
     const label = role === 'Found in' ? 'Found in (chests and objects)' : role;
     html += `<details class="loc-fold"${groupNo === 0 ? ' open' : ''}><summary><h4 class="loc-h">${esc(label)}${esc(of)}</h4></summary>${note}<ul class="loc-list">${rows.map(([src, k], j) => row(src, k, j >= 8)).join('')}</ul>`;
     if (rows.length > 8) html += `<button type="button" class="chip show-more">Show all ${rows.length}</button>`;
@@ -886,6 +889,11 @@ const extCache = new Map();
 
 const RECIPE_FILES = { classic: 'static/mop-classic-recipes.json' };
 
+function fetchBuilt(file) {
+  if (!file) return Promise.resolve(null);
+  return getJsonFast(BASE + file, { swr: true }).catch(() => fetchStatic(file));
+}
+
 function fetchStatic(file) {
   return file ? getJsonFast(new URL(file, location.href).href, { swr: true, revalidate: false }).catch(() => null) : Promise.resolve(null);
 }
@@ -896,17 +904,18 @@ function mergeRecipes(ext, wago) {
   for (const [id, n] of Object.entries(wago.names || {})) if (!ext.names[id]) ext.names[id] = n;
   for (const [cid, w] of Object.entries(wago.recipes || {})) {
     const cur = ext.recipes[cid];
-    ext.recipes[cid] = { p: w.p, skill: w.skill, r: w.r, q: w.q || 1, by: cur ? cur.by : null };
+    ext.recipes[cid] = { p: w.p, skill: w.skill, r: w.r, q: w.q || 1, spell: w.spell || null, by: (cur && cur.by) || w.by || null };
     if (!ext.craft[cid]) ext.craft[cid] = w.p;
   }
   ext.buy = wago.buy || {};
+  ext.teach = wago.teach || {};
   return ext;
 }
 
 function ensureExt(game) {
   if (!EXT_FILES[game]) return Promise.resolve(null);
   if (!extCache.has(game)) {
-    extCache.set(game, Promise.all([fetchStatic(EXT_FILES[game]), fetchStatic(RECIPE_FILES[game])])
+    extCache.set(game, Promise.all([fetchStatic(EXT_FILES[game]), fetchBuilt(RECIPE_FILES[game])])
       .then(([ext, wago]) => (ext ? mergeRecipes(ext, wago) : null)));
   }
   return extCache.get(game);
@@ -1013,7 +1022,7 @@ const INV_NAMES = { 0: 'NON_EQUIP', 18: 'BAG', 24: 'AMMO', 27: 'QUIVER' };
 
 function ensureCatalog(game) {
   if (!CATALOG_FILES[game]) return Promise.resolve(null);
-  if (!catalogCache.has(game)) catalogCache.set(game, fetchStatic(CATALOG_FILES[game]).then(d => (d ? d.items : null)));
+  if (!catalogCache.has(game)) catalogCache.set(game, fetchBuilt(CATALOG_FILES[game]).then(d => (d ? d.items : null)));
   return catalogCache.get(game);
 }
 
@@ -1497,13 +1506,23 @@ function recipeByItem(ext) {
   if (!ext._by) {
     ext._by = new Map();
     for (const [cid, r] of Object.entries(ext.recipes)) if (r.by) ext._by.set(r.by, Number(cid));
+    for (const [item, cid] of Object.entries(ext.teach || {})) if (!ext._by.has(Number(item)) && ext.recipes[cid]) ext._by.set(Number(item), Number(cid));
   }
   return ext._by;
 }
 
-function craftBlock(craftedId, prof, r, ext, vend, price) {
+const TRAINER_FILES = { classic: 'static/trainer-costs.json' };
+const trainerCache = new Map();
+
+function ensureTrainers(game) {
+  if (!TRAINER_FILES[game]) return Promise.resolve(null);
+  if (!trainerCache.has(game)) trainerCache.set(game, fetchStatic(TRAINER_FILES[game]).catch(() => null));
+  return trainerCache.get(game);
+}
+
+function craftBlock(craftedId, prof, r, ext, vend, price, trainers) {
   const makes = r && r.q > 1 ? ` \u00b7 makes ${r.q}` : '';
-  let out = `<div class="craft-box"><p><b>${esc(prof || (r && r.p) || 'Crafted')}</b>${r ? ` \u00b7 requires skill ${r.skill}` : ''}${makes}</p>`;
+  let out = `<div class="craft-box"><p><b>${esc(prof || (r && r.p) || 'Crafted')}</b>${r && r.skill > 1 ? ` \u00b7 requires skill ${r.skill}` : ''}${makes}</p>`;
   if (r) {
     let cost = 0;
     let complete = true;
@@ -1526,7 +1545,10 @@ function craftBlock(craftedId, prof, r, ext, vend, price) {
       const vendors = vend && vend.any.has(Number(r.by));
       out += `<p>Learned from <button type="button" class="linkish" data-open="${r.by}"${qs(r.by)}>${esc(nameOf(r.by))}</button>${srcs.length ? ` (${esc(srcs.join('; '))})` : ''}${vendors ? ', sold by vendors' : ''}. Open it to see where to get it.</p>`;
     } else {
-      out += '<p class="dim">Learned from a profession trainer, or from a recipe item not in the source data.</p>';
+      const t = trainers && r.spell ? trainers[r.spell] : null;
+      out += t
+        ? `<p>Learned from ${esc(prof || r.p || 'profession')} trainers${t[0] ? ` for ${money(t[0])}` : ''}${t[1] ? ` at skill ${t[1]}` : ''}.</p>`
+        : '<p class="dim">Learned from a profession trainer, or from a recipe item not in the source data.</p>';
     }
   } else {
     out += '<p class="dim">The material list for this item is not in the data yet. Recipes learned from trainers need Blizzard\'s recipe tables, which can be exported with wow.export.</p>';
@@ -1536,7 +1558,7 @@ function craftBlock(craftedId, prof, r, ext, vend, price) {
 
 async function fillCraft(id) {
   const game = state.game;
-  const [meta, commodities, vend] = await Promise.all([ensureMeta(game), loadCommodities(), ensureGold(game)]);
+  const [meta, commodities, vend, trainers] = await Promise.all([ensureMeta(game), loadCommodities(), ensureGold(game), ensureTrainers(game)]);
   if (state.openId !== id || state.game !== game || !$('detail').open) return;
   const ext = meta.ext;
   if (!ext) return;
@@ -1544,10 +1566,10 @@ async function fillCraft(id) {
   let html = '';
   const prof = ext.craft[id];
   const r = ext.recipes[id];
-  if (prof || r) html += craftBlock(id, prof, r, ext, vend, price);
+  if (prof || r) html += craftBlock(id, prof, r, ext, vend, price, trainers);
   const teaches = recipeByItem(ext).get(id);
   if (teaches) {
-    html += `<p>This recipe teaches <button type="button" class="linkish" data-open="${teaches}"${qs(teaches)}>${esc(nameOf(teaches))}</button>:</p>` + craftBlock(teaches, ext.recipes[teaches].p, ext.recipes[teaches], ext, vend, price);
+    html += `<p>This recipe teaches <button type="button" class="linkish" data-open="${teaches}"${qs(teaches)}>${esc(nameOf(teaches))}</button>:</p>` + craftBlock(teaches, ext.recipes[teaches].p, ext.recipes[teaches], ext, vend, price, trainers);
   }
   if (!html) return;
   $('dlgCraft').innerHTML = html;
@@ -1566,7 +1588,7 @@ async function fillHow(id) {
   if (state.openId !== id || state.game !== game) return;
   const le = loc && loc.items[id];
   const has = (ids, table) => (ids || []).some(n => table && table[n]);
-  const ways = le ? [has(le.v, loc.npcs) && 'sold by vendors', has(le.d, loc.npcs) && 'dropped by creatures', has(le.o, loc.objects) && 'found in world objects'].filter(Boolean) : [];
+  const ways = le ? [has(le.v, loc.npcs) && 'sold by vendors', has(le.d, loc.npcs) && 'dropped by creatures', has(le.k, loc.npcs) && 'skinned from creatures', has(le.o, loc.objects) && 'found in world objects'].filter(Boolean) : [];
   const waysText = ways.length > 1 ? `${ways.slice(0, -1).join(', ')} and ${ways[ways.length - 1]}` : ways[0] || '';
   const locNote = waysText ? `<p>${waysText.charAt(0).toUpperCase() + waysText.slice(1)}. See where to find it below.</p>` : '';
   $('dlgHow').innerHTML = (recipe || src || locNote
@@ -2202,7 +2224,7 @@ async function renderPvp() {
     $('pvpList').innerHTML = '<div class="empty-note">There is no vendor cost data for this game.</div>';
     return;
   }
-  const [commodities, data, catalog] = await Promise.all([loadCommodities(), fetchStatic(CURRENCY_FILES[game]), ensureCatalog(game)]);
+  const [commodities, data, catalog] = await Promise.all([loadCommodities(), fetchBuilt(CURRENCY_FILES[game]), ensureCatalog(game)]);
   if (seq !== state.seq || state.mode !== 'pvp') return;
   if (catalog) state.catalog = catalog;
   if (!data || !data.items) {
