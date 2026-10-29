@@ -1,5 +1,5 @@
 {
- "started": "2026-10-29T15:55:43.015Z",
+ "started": "2026-10-29T16:36:12.975Z",
  "steps": [
   {
    "name": "products",
@@ -201,6 +201,62 @@
    ]
   },
   {
+   "name": "table ItemExtendedCost",
+   "rows": 3470,
+   "columns": [
+    "ID",
+    "RequiredArenaRating",
+    "ArenaBracket",
+    "Flags",
+    "MinFactionID",
+    "MinReputation",
+    "RequiredAchievement",
+    "ItemID_0",
+    "ItemID_1",
+    "ItemID_2",
+    "ItemID_3",
+    "ItemID_4",
+    "ItemCount_0",
+    "ItemCount_1",
+    "ItemCount_2",
+    "ItemCount_3",
+    "ItemCount_4",
+    "CurrencyID_0",
+    "CurrencyID_1",
+    "CurrencyID_2",
+    "CurrencyID_3",
+    "CurrencyID_4",
+    "CurrencyCount_0",
+    "CurrencyCount_1",
+    "CurrencyCount_2",
+    "CurrencyCount_3",
+    "CurrencyCount_4"
+   ]
+  },
+  {
+   "name": "table CurrencyTypes",
+   "rows": 69,
+   "columns": [
+    "ID",
+    "Name_lang",
+    "Description_lang",
+    "CategoryID",
+    "InventoryIconFileID",
+    "SpellWeight",
+    "SpellCategory",
+    "MaxQty",
+    "MaxEarnablePerWeek",
+    "Quality",
+    "Field_5_5_4_67090_009",
+    "Field_5_5_4_67090_010",
+    "Field_5_5_4_67090_011",
+    "Field_1_15_4_56400_012",
+    "Field_5_5_4_67090_013",
+    "Flags_0",
+    "Flags_1"
+   ]
+  },
+  {
    "name": "profession spells",
    "count": 5501
   },
@@ -269,6 +325,71 @@
    }
   },
   {
+   "name": "currency items",
+   "extCostColumns": [
+    "ID",
+    "RequiredArenaRating",
+    "ArenaBracket",
+    "Flags",
+    "MinFactionID",
+    "MinReputation",
+    "RequiredAchievement",
+    "ItemID_0",
+    "ItemID_1",
+    "ItemID_2",
+    "ItemID_3",
+    "ItemID_4",
+    "ItemCount_0",
+    "ItemCount_1",
+    "ItemCount_2",
+    "ItemCount_3",
+    "ItemCount_4",
+    "CurrencyID_0",
+    "CurrencyID_1",
+    "CurrencyID_2",
+    "CurrencyID_3",
+    "CurrencyID_4",
+    "CurrencyCount_0",
+    "CurrencyCount_1",
+    "CurrencyCount_2",
+    "CurrencyCount_3",
+    "CurrencyCount_4"
+   ],
+   "currencyColumns": [
+    "ID",
+    "Name_lang",
+    "Description_lang",
+    "CategoryID",
+    "InventoryIconFileID",
+    "SpellWeight",
+    "SpellCategory",
+    "MaxQty",
+    "MaxEarnablePerWeek",
+    "Quality",
+    "Field_5_5_4_67090_009",
+    "Field_5_5_4_67090_010"
+   ],
+   "items": 7437,
+   "honorItems": 0,
+   "currencies": {
+    "61": "Dalaran Jewelcrafter's Token",
+    "81": "Epicurean's Award",
+    "241": "Champion's Seal",
+    "361": "Illustrious Jewelcrafter's Token",
+    "390": "Conquest Points",
+    "391": "Tol Barad Commendation",
+    "395": "Justice Points",
+    "396": "Valor Points",
+    "402": "Ironpaw Token",
+    "416": "Mark of the World Tree",
+    "515": "Darkmoon Prize Ticket",
+    "614": "Mote of Darkness",
+    "615": "Essence of Corrupted Deathwing",
+    "1901": "Honor Points"
+   },
+   "sample": []
+  },
+  {
    "name": "done",
    "recipes": 4662,
    "byProfession": {
@@ -287,5 +408,5 @@
   }
  ],
  "ok": true,
- "finished": "2026-10-29T15:56:19.419Z"
+ "finished": "2026-10-29T16:36:26.626Z"
 }
