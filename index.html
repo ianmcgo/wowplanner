@@ -296,6 +296,7 @@ footer p { margin: 4px 0; }
         <option value="n">Listings</option>
         <option value="m">Lowest price</option>
         <option value="name">Name</option>
+        <option value="rarity">Rarity</option>
         <option value="ilvl">Item level</option>
         <option value="req">Required level</option>
         <option value="dps">DPS (weapons)</option>
@@ -305,6 +306,19 @@ footer p { margin: 4px 0; }
     <div class="field lf check">
       <label for="showAll">Items</label>
       <label class="check-row"><input type="checkbox" id="showAll"> Show all items, not just listed ones</label>
+    </div>
+    <div class="field lf" id="bindWrap" hidden>
+      <label for="bindFilter">Binding</label>
+      <select id="bindFilter">
+        <option value="">Any binding</option>
+        <option value="bound">Can't be listed on the AH</option>
+        <option value="bop">Binds when picked up</option>
+        <option value="boe">Binds when equipped</option>
+        <option value="bou">Binds when used</option>
+        <option value="quest">Quest items</option>
+        <option value="nosell">Can't be sold to vendors</option>
+        <option value="trade">Tradeable only</option>
+      </select>
     </div>
     <div class="field lf">
       <label for="category">Category</label>
@@ -587,16 +601,41 @@ function nameOf(id) {
 }
 
 const EXT_FILES = { classic: 'static/mop-classic-sources.json' };
-const LOC_FILES = { classic: 'static/mop-classic-locations.json' };
+const LOC_DIRS = { classic: 'static/loc/' };
+const LOC_SHARDS = 64;
+const GOLD_FILES = { classic: ['static/gold-vendor-items.json', 'static/vendor-items.json'] };
 const locCache = new Map();
+const goldCache = new Map();
 const infoCache = new Map();
 
-function ensureLocations(game) {
-  if (!LOC_FILES[game]) return Promise.resolve(null);
-  if (!locCache.has(game)) {
-    locCache.set(game, fetchStatic(LOC_FILES[game]));
+function locPart(game, file) {
+  const key = game + '/' + file;
+  if (!locCache.has(key)) locCache.set(key, fetchStatic(LOC_DIRS[game] + file).catch(() => null));
+  return locCache.get(key);
+}
+
+function ensureLocFor(game, ids) {
+  if (!LOC_DIRS[game]) return Promise.resolve(null);
+  const keys = [...new Set(ids.filter(i => i).map(i => Number(i) % LOC_SHARDS))];
+  return Promise.all([locPart(game, 'zones.json'), ...keys.map(k => locPart(game, `${k}.json`))]).then(([zones, ...parts]) => {
+    const out = { zones: zones || {}, items: {}, npcs: {}, objects: {} };
+    for (const part of parts) {
+      if (!part) continue;
+      Object.assign(out.items, part.items);
+      Object.assign(out.npcs, part.npcs);
+      Object.assign(out.objects, part.objects);
+    }
+    return out;
+  });
+}
+
+function ensureGold(game) {
+  if (!GOLD_FILES[game]) return Promise.resolve(null);
+  if (!goldCache.has(game)) {
+    goldCache.set(game, Promise.all(GOLD_FILES[game].map(f => fetchStatic(f).catch(() => [])))
+      .then(([gold, any]) => ({ gold: new Set(gold), any: new Set(any) })));
   }
-  return locCache.get(game);
+  return goldCache.get(game);
 }
 
 function ensureInfo(game) {
@@ -671,7 +710,7 @@ function renderLocMap() {
 
 async function fillLocations(id) {
   const game = state.game;
-  const loc = await ensureLocations(game);
+  const [loc, vend] = await Promise.all([ensureLocFor(game, [id]), ensureGold(game)]);
   if (state.openId !== id || state.game !== game || !$('detail').open) return;
   const entry = loc && loc.items[id];
   if (!entry) {
@@ -712,7 +751,7 @@ async function fillLocations(id) {
     const rows = list.map((src, k) => [src, k]).filter(([src]) => src.role === role);
     if (!rows.length) continue;
     const of = role === 'Dropped by' && entry.dn ? ` (top ${rows.length} of ${entry.dn})` : ` (${rows.length})`;
-    const vu = role === 'Sold by' ? vendorUnit(id, state.ext, loc) : null;
+    const vu = role === 'Sold by' ? vendorUnit(id, state.ext, vend) : null;
     const vb = vu !== null && state.ext.buy[id];
     const vendNote = vu !== null ? `<div class="sub rate-src">Vendor price: ${money(Math.round(Array.isArray(vb) ? vb[0] : vb))}${Array.isArray(vb) ? ` for ${vb[1]}` : ''}</div>` : '';
     const note = role === 'Sold by' ? vendNote : role === 'Dropped by' && entry.ds ? `<div class="sub rate-src">Drop chances from ${esc(RATE_SOURCE[entry.ds] || entry.ds)}${entry.ds === 'mop' ? '' : '. Rates may differ in MoP Classic'}.</div>` : '';
@@ -753,28 +792,17 @@ function ensureExt(game) {
   return extCache.get(game);
 }
 
-const CURRENCY_VENDOR = /quartermaster|justice|honor|valor|conquest|arena|darkmoon|exotic goods|legacy|prizes|tabard|heirloom|sha'tari|emblem|badge|token|wintergrasp|triumphant|glorious|gladiator|exchange|spirit of harmony|currency|mark|insignia|commendation/i;
-
-function goldVendors(id, loc) {
-  const e = loc && loc.items[id];
-  if (!e || !e.v) return [];
-  return e.v.filter(n => {
-    const npc = loc.npcs[n];
-    return npc && !(npc[1] && CURRENCY_VENDOR.test(npc[1]));
-  });
-}
-
-function vendorUnit(id, ext, loc) {
-  if (!ext || !ext.buy || !goldVendors(id, loc).length) return null;
+function vendorUnit(id, ext, vend) {
+  if (!ext || !ext.buy || !vend || !vend.gold.has(Number(id))) return null;
   const b = ext.buy[id];
   if (!b) return null;
   return Array.isArray(b) ? b[0] / b[1] : b;
 }
 
-function unitCost(id, price, ext, loc) {
+function unitCost(id, price, ext, vendSets) {
   const p = price.get(id);
   const ah = p && p.m !== null ? p.m : null;
-  const vend = vendorUnit(id, ext, loc);
+  const vend = vendorUnit(id, ext, vendSets);
   if (ah !== null && (vend === null || ah <= vend)) return { each: ah, from: 'auction' };
   if (vend !== null) return { each: vend, from: 'vendor' };
   return { each: null, from: null };
@@ -823,6 +851,13 @@ function iconUrl(id) {
 
 const QUALITY_BY_INDEX = ['POOR', 'COMMON', 'UNCOMMON', 'RARE', 'EPIC', 'LEGENDARY', 'ARTIFACT', 'HEIRLOOM'];
 
+function rarityOf(id) {
+  const q = state.tips && state.tips[id] && state.tips[id].q;
+  if (q && QUALITY_BY_INDEX.includes(q)) return QUALITY_BY_INDEX.indexOf(q);
+  if (state.catalog && state.catalog[id]) return state.catalog[id][1];
+  return -1;
+}
+
 function qs(id) {
   let q = state.tips && state.tips[id] && state.tips[id].q;
   if (!q && state.catalog && state.catalog[id]) q = QUALITY_BY_INDEX[state.catalog[id][1]];
@@ -856,6 +891,20 @@ function getInfo(id) {
 }
 
 let unlistedCache = { snap: null, catalog: null, list: [] };
+
+const BIND_TEST = {
+  bound: c => c[8] === 1 || c[8] === 4,
+  bop: c => c[8] === 1,
+  boe: c => c[8] === 2,
+  bou: c => c[8] === 3,
+  quest: c => c[8] === 4,
+  nosell: c => !c[9],
+  trade: c => c[8] !== 1 && c[8] !== 4
+};
+
+function bindMatch(c, key) {
+  return !!c && BIND_TEST[key](c);
+}
 
 function unlistedItems() {
   if (!state.catalog) return [];
@@ -1025,7 +1074,9 @@ function filteredRows() {
   const rmax = parseInt($('reqMax').value, 10);
   const out = [];
   const pool = $('showAll').checked && state.catalog ? state.snap.items.concat(unlistedItems()) : state.snap.items;
+  const bind = $('showAll').checked && state.catalog ? $('bindFilter').value : '';
   for (const e of pool) {
+    if (bind && !bindMatch(state.catalog[e.i], bind)) continue;
     if (!isNaN(lmin) || !isNaN(lmax)) {
       const lv = statOf(e.i, 4);
       if (!lv) continue;
@@ -1054,6 +1105,14 @@ function filteredRows() {
   const STAT_INDEX = { ilvl: 4, req: 5, dps: 6, armor: 7 };
   out.sort((a, b) => {
     if (key === 'name') return dir * a.name.localeCompare(b.name);
+    if (key === 'rarity') {
+      const ra = rarityOf(a.e.i);
+      const rb = rarityOf(b.e.i);
+      if (ra === rb) return a.name.localeCompare(b.name);
+      if (ra < 0) return 1;
+      if (rb < 0) return -1;
+      return dir * (ra - rb);
+    }
     if (STAT_INDEX[key]) {
       const va = statOf(a.e.i, STAT_INDEX[key]);
       const vb = statOf(b.e.i, STAT_INDEX[key]);
@@ -1224,14 +1283,14 @@ function recipeByItem(ext) {
   return ext._by;
 }
 
-function craftBlock(craftedId, prof, r, ext, loc, price) {
+function craftBlock(craftedId, prof, r, ext, vend, price) {
   const makes = r && r.q > 1 ? ` \u00b7 makes ${r.q}` : '';
   let out = `<div class="craft-box"><p><b>${esc(prof || (r && r.p) || 'Crafted')}</b>${r ? ` \u00b7 requires skill ${r.skill}` : ''}${makes}</p>`;
   if (r) {
     let cost = 0;
     let complete = true;
     const rows = r.r.map(([mid, qty]) => {
-      const { each, from } = unitCost(mid, price, ext, loc);
+      const { each, from } = unitCost(mid, price, ext, vend);
       if (each === null) complete = false;
       else cost += each * qty;
       const tag = from === 'vendor' ? ' <span class="dim">vendor</span>' : '';
@@ -1246,8 +1305,8 @@ function craftBlock(craftedId, prof, r, ext, loc, price) {
     out += `<table class="mats"><thead><tr><th>Material</th><th>Qty</th><th>Each</th><th>Total</th></tr></thead><tbody>${rows}</tbody><tfoot>${foot}</tfoot></table>`;
     if (r.by) {
       const srcs = extSources(ext, r.by).map(([t, l]) => `${SOURCE_TEXT[t] || t}${l ? ': ' + l : ''}`);
-      const vendors = loc && loc.items[r.by] && loc.items[r.by].v ? loc.items[r.by].v.length : 0;
-      out += `<p>Learned from <button type="button" class="linkish" data-open="${r.by}"${qs(r.by)}>${esc(nameOf(r.by))}</button>${srcs.length ? ` (${esc(srcs.join('; '))})` : ''}${vendors ? `, sold by ${vendors} vendor${vendors === 1 ? '' : 's'}` : ''}. Open it to see where to get it.</p>`;
+      const vendors = vend && vend.any.has(Number(r.by));
+      out += `<p>Learned from <button type="button" class="linkish" data-open="${r.by}"${qs(r.by)}>${esc(nameOf(r.by))}</button>${srcs.length ? ` (${esc(srcs.join('; '))})` : ''}${vendors ? ', sold by vendors' : ''}. Open it to see where to get it.</p>`;
     } else {
       out += '<p class="dim">Learned from a profession trainer, or from a recipe item not in the source data.</p>';
     }
@@ -1259,7 +1318,7 @@ function craftBlock(craftedId, prof, r, ext, loc, price) {
 
 async function fillCraft(id) {
   const game = state.game;
-  const [meta, commodities, loc] = await Promise.all([ensureMeta(game), loadCommodities(), ensureLocations(game)]);
+  const [meta, commodities, vend] = await Promise.all([ensureMeta(game), loadCommodities(), ensureGold(game)]);
   if (state.openId !== id || state.game !== game || !$('detail').open) return;
   const ext = meta.ext;
   if (!ext) return;
@@ -1267,10 +1326,10 @@ async function fillCraft(id) {
   let html = '';
   const prof = ext.craft[id];
   const r = ext.recipes[id];
-  if (prof || r) html += craftBlock(id, prof, r, ext, loc, price);
+  if (prof || r) html += craftBlock(id, prof, r, ext, vend, price);
   const teaches = recipeByItem(ext).get(id);
   if (teaches) {
-    html += `<p>This recipe teaches <button type="button" class="linkish" data-open="${teaches}"${qs(teaches)}>${esc(nameOf(teaches))}</button>:</p>` + craftBlock(teaches, ext.recipes[teaches].p, ext.recipes[teaches], ext, loc, price);
+    html += `<p>This recipe teaches <button type="button" class="linkish" data-open="${teaches}"${qs(teaches)}>${esc(nameOf(teaches))}</button>:</p>` + craftBlock(teaches, ext.recipes[teaches].p, ext.recipes[teaches], ext, vend, price);
   }
   if (!html) return;
   $('dlgCraft').innerHTML = html;
@@ -1285,7 +1344,7 @@ async function fillHow(id) {
   const price = new Map(combinedItems(commodities).map(e => [e.i, e]));
   const recipe = "";
   const src = sourceHtml(id, meta);
-  const loc = await ensureLocations(game);
+  const loc = await ensureLocFor(game, [id]);
   if (state.openId !== id || state.game !== game) return;
   const le = loc && loc.items[id];
   const has = (ids, table) => (ids || []).some(n => table && table[n]);
@@ -1381,8 +1440,8 @@ function ensureMeta(game) {
       fetchData(`${game}/sources.json.gz`).catch(() => null),
       fetchData(`${game}/cats.json`).catch(() => ({})),
       ensureExt(game),
-      ensureLocations(game)
-    ]).then(([sources, cats, ext, loc]) => ({ sources, cats, ext, loc })));
+      ensureGold(game)
+    ]).then(([sources, cats, ext, gold]) => ({ sources, cats, ext, gold })));
   }
   return metaCache.get(game);
 }
@@ -1487,7 +1546,7 @@ function computeProfits(method, minListings, meta, items) {
       let complete = true;
       const reagents = [];
       for (const [id, qty] of r.r) {
-        const { each } = unitCost(id, price, meta.ext, meta.loc);
+        const { each } = unitCost(id, price, meta.ext, meta.gold);
         if (each === null) { complete = false; break; }
         cost += each * qty;
         reagents.push({ id, qty, unit: each });
@@ -1778,6 +1837,7 @@ $('dlgLoc').addEventListener('click', ev => {
 });
 $('showAll').addEventListener('change', async () => {
   store.set('ah.showAll', $('showAll').checked ? '1' : '');
+  $('bindWrap').hidden = !$('showAll').checked;
   if ($('showAll').checked && !state.catalog) {
     setStatus('Loading the full item list');
     state.catalog = await ensureCatalog(state.game);
@@ -1786,7 +1846,8 @@ $('showAll').addEventListener('change', async () => {
   render();
 });
 if (store.get('ah.showAll') === '1') $('showAll').checked = true;
-for (const fid of ['category', 'wearClass']) {
+$('bindWrap').hidden = !$('showAll').checked;
+for (const fid of ['category', 'wearClass', 'bindFilter']) {
   const saved = store.get('ah.' + fid);
   if (saved && [...$(fid).options].some(o => o.value === saved)) $(fid).value = saved;
   $(fid).addEventListener('change', () => {

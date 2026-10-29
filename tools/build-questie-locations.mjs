@@ -11,7 +11,7 @@ const MAX_VENDORS = 8;
 const MAX_DROPS = 25;
 const MAX_OBJECTS = 10;
 const MAX_ZONES = 3;
-const MAX_POINTS = 30;
+const MAX_POINTS = 15;
 
 function parseLua(src) {
   let i = 0;
@@ -192,8 +192,27 @@ for (const o of usedObjects) {
 }
 for (const z of usedZones) out.zones[z] = zoneNames[z] || null;
 
-await mkdir(path.dirname(outFile), { recursive: true });
-await writeFile(outFile, JSON.stringify(out));
+const SHARDS = 64;
+const CURRENCY_VENDOR = /quartermaster|justice|honor|valor|conquest|arena|darkmoon|exotic goods|legacy|prizes|tabard|heirloom|sha'tari|emblem|badge|token|wintergrasp|triumphant|glorious|gladiator|exchange|spirit of harmony|currency|mark|insignia|commendation/i;
+const outDir = path.join(path.dirname(outFile), 'loc');
+await mkdir(outDir, { recursive: true });
+const shards = Array.from({ length: SHARDS }, () => ({ items: {}, npcs: {}, objects: {} }));
+for (const [id, entry] of Object.entries(out.items)) {
+  const sh = shards[Number(id) % SHARDS];
+  sh.items[id] = entry;
+  for (const n of [...(entry.v || []), ...(entry.d || [])]) if (out.npcs[n]) sh.npcs[n] = out.npcs[n];
+  for (const o of entry.o || []) if (out.objects[o]) sh.objects[o] = out.objects[o];
+}
+for (let k = 0; k < SHARDS; k++) await writeFile(path.join(outDir, `${k}.json`), JSON.stringify(shards[k]));
+await writeFile(path.join(outDir, 'zones.json'), JSON.stringify(out.zones));
+const vendorIds = Object.entries(out.items).filter(([, e]) => e.v).map(([id]) => Number(id)).sort((a, b) => a - b);
+const goldIds = Object.entries(out.items)
+  .filter(([, e]) => (e.v || []).some(n => out.npcs[n] && !(out.npcs[n][1] && CURRENCY_VENDOR.test(out.npcs[n][1]))))
+  .map(([id]) => Number(id))
+  .sort((a, b) => a - b);
+await writeFile(path.join(path.dirname(outFile), 'vendor-items.json'), JSON.stringify(vendorIds));
+await writeFile(path.join(path.dirname(outFile), 'gold-vendor-items.json'), JSON.stringify(goldIds));
+console.log('shards', SHARDS, 'vendor items', vendorIds.length, 'gold vendor items', goldIds.length);
 const vendorItems = Object.values(out.items).filter(e => e.v).length;
 console.log('items with drop rates', ratedItems, 'from private server tables', extRated);
 console.log('items', Object.keys(out.items).length, 'with vendors', vendorItems, 'npcs', Object.keys(out.npcs).length, 'objects', Object.keys(out.objects).length, 'zones', usedZones.size, 'named zones', Object.values(out.zones).filter(Boolean).length);
