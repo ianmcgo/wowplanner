@@ -139,14 +139,18 @@ dialog {
   border: 1px solid var(--line);
   border-radius: 14px;
   padding: 0;
-  width: min(680px, calc(100vw - 24px));
-  max-height: calc(100vh - 24px);
+  width: min(960px, calc(100vw - 24px));
+  max-height: calc(100dvh - 24px);
+  overscroll-behavior: contain;
 }
 dialog::backdrop { background: rgba(0, 0, 0, .65); }
+html.modal-open, html:has(dialog[open]) { overflow: hidden; }
+html.modal-open body { overflow: hidden; touch-action: none; }
+html.modal-open dialog { touch-action: auto; }
 .dlg-head { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; padding: 16px 18px 8px; }
 .dlg-head h2 { margin: 0; font-size: 1.2rem; }
 .dlg-head a { color: var(--accent-2); font-size: .88rem; }
-.dlg-body { padding: 0 18px 18px; overflow: auto; max-height: calc(100vh - 110px); }
+.dlg-body { padding: 0 22px 20px; overflow: auto; max-height: calc(100dvh - 110px); overscroll-behavior: contain; }
 .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin: 8px 0 14px; }
 .stat { background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; padding: 9px 11px; }
 .stat b { display: block; font-size: .72rem; color: var(--dim); text-transform: uppercase; letter-spacing: .06em; font-weight: 600; }
@@ -270,6 +274,12 @@ footer p { margin: 4px 0; }
 .loss { color: var(--danger); font-weight: 600; }
 .craft-more { margin-top: 8px; }
 .craft-more summary { cursor: pointer; color: var(--dim); font-size: .9rem; padding: 4px 0; }
+.loc-fold { border-top: 1px solid var(--line); }
+.loc-fold > summary { cursor: pointer; list-style: none; display: flex; align-items: center; gap: 8px; padding: 8px 0; }
+.loc-fold > summary::-webkit-details-marker { display: none; }
+.loc-fold > summary::before { content: "\25B8"; color: var(--accent); font-size: .8rem; transition: transform .15s; }
+.loc-fold[open] > summary::before { transform: rotate(90deg); }
+.loc-fold > summary .loc-h { margin: 0; }
 .tick-wait { color: var(--dim); cursor: default; border-right: 0; }
 .ticker-track:has(.tick-wait) { animation: none; }
 @keyframes ticker-move { from { transform: translateX(0); } to { transform: translateX(-50%); } }
@@ -853,6 +863,7 @@ async function fillLocations(id) {
     return `<li${hide ? ' class="more" hidden' : ''}><button type="button" data-loc="${k}" aria-pressed="${String(k === 0)}">${esc(src.name)}${extra}${pct}<div class="sub">${esc(zones)}${esc(lvl)} \u00b7 ${pts} spawn point${pts === 1 ? '' : 's'}</div></button></li>`;
   };
   let html = '';
+  let groupNo = 0;
   for (const role of ['Gathered from (Herbalism)', 'Mined from (Mining)', 'Sold by', 'Dropped by', 'Found in']) {
     const rows = list.map((src, k) => [src, k]).filter(([src]) => src.role === role);
     if (!rows.length) continue;
@@ -861,10 +872,13 @@ async function fillLocations(id) {
     const vb = vu !== null && state.ext.buy[id];
     const vendNote = vu !== null ? `<div class="sub rate-src">Vendor price: ${money(Math.round(Array.isArray(vb) ? vb[0] : vb))}${Array.isArray(vb) ? ` for ${vb[1]}` : ''}</div>` : '';
     const note = role === 'Sold by' ? vendNote : role === 'Dropped by' && entry.ds ? `<div class="sub rate-src">Drop chances from ${esc(RATE_SOURCE[entry.ds] || entry.ds)}${entry.ds === 'mop' ? '' : '. Rates may differ in MoP Classic'}.</div>` : '';
-    html += `<h4 class="loc-h">${esc(role)}${esc(of)}</h4>${note}<ul class="loc-list">${rows.map(([src, k], j) => row(src, k, j >= 8)).join('')}</ul>`;
+    const label = role === 'Found in' ? 'Found in (chests and objects)' : role;
+    html += `<details class="loc-fold"${groupNo === 0 ? ' open' : ''}><summary><h4 class="loc-h">${esc(label)}${esc(of)}</h4></summary>${note}<ul class="loc-list">${rows.map(([src, k], j) => row(src, k, j >= 8)).join('')}</ul>`;
     if (rows.length > 8) html += `<button type="button" class="chip show-more">Show all ${rows.length}</button>`;
+    html += '</details>';
+    groupNo++;
   }
-  $('dlgLoc').innerHTML = `${html}<div id="locMap"></div>`;
+  $('dlgLoc').innerHTML = `${html}<details class="loc-fold" open><summary><h4 class="loc-h">Spawn locations</h4></summary><div id="locMap"></div></details>`;
   $('dlgLocWrap').hidden = false;
   renderLocMap();
 }
@@ -1593,7 +1607,10 @@ function openDetail(id) {
   chartPoints = [];
   $('chartTip').textContent = 'Loading history';
   const dlg = $('detail');
-  if (!dlg.open) dlg.showModal();
+  if (!dlg.open) {
+    dlg.showModal();
+    document.documentElement.classList.add('modal-open');
+  }
   $('dlgLocWrap').hidden = true;
   $('dlgLoc').innerHTML = '';
   $('dlgCraftWrap').hidden = true;
@@ -2175,7 +2192,7 @@ async function renderDrops() {
 }
 
 const CURRENCY_FILES = { classic: 'static/currency-items.json' };
-const PVP_CURRENCIES = [[392, 'Honor'], [390, 'Conquest'], [395, 'Justice'], [396, 'Valor']];
+const PVP_CURRENCIES = [[1901, 'Honor'], [392, 'Honor'], [390, 'Conquest'], [395, 'Justice'], [396, 'Valor']];
 
 async function renderPvp() {
   if (!state.snap) return;
@@ -2195,7 +2212,7 @@ async function renderPvp() {
     return;
   }
   const present = PVP_CURRENCIES.filter(([cid]) => data.currencies && data.currencies[cid]);
-  const cur = present.some(([cid]) => cid === state.pvpCur) ? state.pvpCur : (present[0] || [392])[0];
+  const cur = present.some(([cid]) => cid === state.pvpCur) ? state.pvpCur : (present[0] || [1901])[0];
   $('pvpChips').innerHTML = present.map(([cid, label]) => `<button type="button" class="chip pvp-cur" data-cur="${cid}" aria-pressed="${String(cid === cur)}">${esc(label)}</button>`).join('');
   const label = (present.find(([cid]) => cid === cur) || [0, 'currency'])[1];
   const price = new Map(combinedItems(commodities).map(e => [e.i, e]));
@@ -2284,7 +2301,7 @@ $('pvpChips').addEventListener('click', ev => {
   store.set('ah.pvpCur', String(state.pvpCur));
   renderPvp();
 });
-state.pvpCur = Number(store.get('ah.pvpCur')) || 392;
+state.pvpCur = Number(store.get('ah.pvpCur')) || 1901;
 $('tabDungeon').addEventListener('click', () => setMode('dungeon'));
 $('tabRaid').addEventListener('click', () => setMode('raid'));
 $('dropChips').addEventListener('click', ev => {
@@ -2324,6 +2341,8 @@ $('dlgLoc').addEventListener('click', ev => {
   const b = ev.target.closest('[data-loc]');
   if (b) {
     locState.sel = Number(b.dataset.loc);
+    const mapFold = $('locMap') && $('locMap').closest('details');
+    if (mapFold) mapFold.open = true;
     locState.zone = null;
     $('dlgLoc').querySelectorAll('[data-loc]').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
     renderLocMap();
@@ -2434,6 +2453,7 @@ $('prev').addEventListener('click', () => { state.page--; render(); window.scrol
 $('next').addEventListener('click', () => { state.page++; render(); window.scrollTo({ top: 0 }); });
 $('reload').addEventListener('click', () => { if (state.region) loadRealm(); else init(); });
 $('dlgClose').addEventListener('click', () => $('detail').close());
+$('detail').addEventListener('close', () => document.documentElement.classList.remove('modal-open'));
 $('detail').addEventListener('click', ev => { if (ev.target === $('detail')) $('detail').close(); });
 $('chart').addEventListener('mousemove', chartHover);
 $('chart').addEventListener('touchmove', chartHover, { passive: true });

@@ -27,6 +27,8 @@ const commodityHref = new Map();
 const KNOWN_REGIONS = ['us', 'eu', 'kr', 'tw'];
 const TIME = { SHORT: 'S', MEDIUM: 'M', LONG: 'L', VERY_LONG: 'V' };
 const ICON_LOOKUPS = Number(env.ICON_LOOKUPS || 8000);
+const BACKFILL_LOOKUPS = Number(env.BACKFILL_LOOKUPS || 6000);
+const CATALOG_FILE = env.CATALOG_FILE || 'static/mop-classic-items.json';
 const SALES_DAYS = Number(env.SALES_DAYS || 7);
 const SALES_MAX_GAP = 3 * 3600;
 const SALES_VERSION = 2;
@@ -39,7 +41,7 @@ const HOUSE_CODE = { alliance: 1, horde: 2, blackwater: 3 };
 
 const GAMES = {
   retail: { label: 'Retail', dynamic: 'dynamic-{r}', static: 'static-{r}', commodities: true, houses: false, journal: true },
-  classic: { label: 'Classic (Progression)', dynamic: 'dynamic-classic-{r}', static: 'static-classic-{r}', staticFallback: ['static-classic1x-{r}'], commodities: true, houses: false, journal: false },
+  classic: { label: 'Classic (Progression)', dynamic: 'dynamic-classic-{r}', static: 'static-classic-{r}', staticFallback: ['static-classic1x-{r}'], commodities: true, houses: false, journal: false, catalog: true },
   classic1x: { label: 'Classic Era', dynamic: 'dynamic-classic1x-{r}', static: 'static-classic1x-{r}', staticFallback: ['static-classic-{r}'], commodities: false, houses: true, journal: false },
   classicann: { label: 'Classic Anniversary', dynamic: 'dynamic-classicann-{r}', static: 'static-classicann-{r}', staticFallback: ['static-classic1x-{r}'], commodities: false, houses: true, journal: false }
 };
@@ -737,6 +739,26 @@ async function buildSources(game, meta) {
   log(game.id, 'sources stored. recipes:', built ? Object.keys(built.recipes).length : 0, 'drops:', drops ? Object.keys(drops).length : 0);
 }
 
+async function addBackfill(game, seen, meta) {
+  let catalog = null;
+  try {
+    catalog = JSON.parse(await readFile(CATALOG_FILE, 'utf8')).items;
+  } catch {
+    log(game.id, 'no item catalog for backfill at', CATALOG_FILE);
+    return;
+  }
+  const missing = Object.entries(catalog)
+    .map(([id, c]) => [Number(id), c])
+    .filter(([id]) => !seen.has(id) && (!(id in meta.tips) || !(id in meta.icons) || !(id in meta.info)))
+    .sort((a, b) => (b[1][8] === 4) - (a[1][8] === 4) || b[0] - a[0])
+    .slice(0, BACKFILL_LOOKUPS);
+  for (const [id] of missing) seen.set(id, 0);
+  const left = Object.keys(catalog).filter(id => !(id in meta.tips)).length;
+  const d = diagnostics[game.id] || (diagnostics[game.id] = {});
+  d.backfill = { added: missing.length, catalogItemsWithoutTooltip: left };
+  log(game.id, 'backfill items added:', missing.length, 'catalog items still without tooltip:', left);
+}
+
 async function collectRegion(game, region, now, meta) {
   const base = apiBase(region);
   const ns = game.dynamic.replace('{r}', region);
@@ -789,6 +811,7 @@ async function collectRegion(game, region, now, meta) {
     realms
   });
   if (!meta.staticNs) await probeStatic(game, region, base, meta);
+  if (game.catalog) await addBackfill(game, seen, meta);
   await resolveItemNames(game, region, base, seen, meta);
   await resolveIcons(game, region, base, seen, meta);
   log(game.id, region, 'stored realms:', realms.length);

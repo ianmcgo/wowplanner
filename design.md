@@ -308,8 +308,18 @@ These were built from documentation and forum reports, then tested against a moc
 - Each card shows an instance's sellable drops (listed on the server, at least Min listings) by lowest price: source creature, drop chance, and "Per kill" = price × chance. Instances are ordered by their best drop; the first 3 cards are open. Chips filter by expansion.
 
 ## PvP tab
-- Ranks items bought with a single currency (Honor by default; Conquest, Justice and Valor chips when present) by gold returned per 1,000 spent. An item's value is the higher of its vendor sell price and, when it doesn't bind on pickup or isn't a quest item, its lowest auction price minus the 5% cut. Top 25 show.
+- Ranks items bought with a single currency (Honor by default, which is currency 1901 in MoP Classic rather than the old 392; Conquest, Justice and Valor chips when present) by gold returned per 1,000 spent. An item's value is the higher of its vendor sell price and, when it doesn't bind on pickup or isn't a quest item, its lowest auction price minus the 5% cut. Top 25 show.
 - Costs: `static/vendor-extended-costs.json` (`itemId: [ExtendedCost ids]`) lists every vendor item with a currency or item cost from the MaNGOS Four (MoP 5.4.8) `npc_vendor` and `npc_vendor_template` tables (GPLv3). The "Build recipe data" workflow downloads `ItemExtendedCost` and `CurrencyTypes` from wago.tools and writes `static/currency-items.json` (`{ currencies: { id: name }, items: { itemId: [[[[currencyId, amount]], [[itemId, count]]], ...] } }`). Amounts of currencies with the high-precision flag (8) are divided by 100. Items that also need another item, or two currencies, are skipped.
 
 ## Tab bar
 - With nine tabs, the bar scrolls sideways on phones instead of wrapping, and switching tabs scrolls the active one into view.
+
+- Caveat: the MaNGOS Four vendor lists predate MoP Classic's current PvP seasons, so this season's honor gear is missing and the list leans on older honor items. Treat it as a guide to old honor vendors until better vendor data is found.
+
+## Item popup layout
+- The popup is up to 960 pixels wide (full width minus a margin on phones). While it is open the page behind it does not scroll: the `modal-open` class on `<html>` (plus `:has(dialog[open])`) sets `overflow: hidden`, and the popup body uses `overscroll-behavior: contain` so scrolling past its end doesn't move the page.
+- "Where to find it" groups (gathered from, mined from, sold by, dropped by, found in chests and objects) and the spawn location map are each foldable. The first group and the map start open; picking a source opens the map if it was folded.
+
+## Tooltip and icon backfill
+- The collector used to look up only items that were listed, so unlisted items (quest items especially) shown with Show all items had no tooltip or icon. Each run now also queues up to `BACKFILL_LOOKUPS` (default 6000) catalog items from `CATALOG_FILE` (default `static/mop-classic-items.json`) that have no tooltip, icon or item info yet, quest items first and then newest ids. Listed items still go first, and the total per run stays within `ITEM_LOOKUPS` and `ICON_LOOKUPS` (8000 each), so the whole 81,000-item catalog fills in over roughly ten hourly runs. `diagnostics.json` shows progress under `backfill`.
+- This roughly multiplies `tooltips.json.gz` (about 2 MB compressed when complete) and `icons.json` by ten. Both are cached in the browser and refreshed in the background.

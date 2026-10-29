@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-import { readFileSync, rmSync, existsSync } from 'node:fs';
+import { readFileSync, rmSync, existsSync, writeFileSync, mkdirSync } from 'node:fs';
 import { gunzipSync } from 'node:zlib';
 import assert from 'node:assert/strict';
 import path from 'node:path';
@@ -12,6 +12,9 @@ const out = path.join(here, 'out');
 const port = 4545;
 
 rmSync(out, { recursive: true, force: true });
+mkdirSync(out, { recursive: true });
+const catalogFile = path.join(here, 'catalog.json');
+writeFileSync(catalogFile, JSON.stringify({ items: { 500: ['Quest Thing', 1, 1, 0, 12, 0, 0, -1, 4, 0], 501: ['Old Sword', 2, 10, 5, 2, 7, 13, -1, 2, 100] } }));
 const server = await startMock(port);
 
 function exec(env) {
@@ -36,6 +39,7 @@ async function run(extra = {}) {
     GAMES: 'retail,classic,classic1x',
     CONCURRENCY: '4',
     SALES_MIN_GAP: '0',
+    CATALOG_FILE: catalogFile,
     ...extra
   });
   if (res.status !== 0) {
@@ -63,6 +67,12 @@ try {
   const item = latest.items[0];
   assert.ok(item.q >= item.n && item.m > 0 && item.l.length >= 1 && item.l.length <= 5);
   for (let i = 1; i < item.l.length; i++) assert.ok(item.l[i][1] >= item.l[i - 1][1]);
+
+  const classicTips = readGz(path.join(out, 'classic', 'tooltips.json.gz'));
+  assert.ok(classicTips['500'] && classicTips['501'], 'catalog items backfilled');
+  const classicIcons = JSON.parse(readFileSync(path.join(out, 'classic', 'icons.json'), 'utf8'));
+  assert.equal(classicIcons.icons['500'], 'inv_test_500');
+  assert.ok(!('500' in readGz(path.join(out, 'retail', 'tooltips.json.gz'))));
 
   const classicRealms = JSON.parse(readFileSync(path.join(out, 'classic', 'us', 'realms.json'), 'utf8'));
   assert.equal(classicRealms.realms[0].id, 'commodities');
@@ -163,6 +173,7 @@ try {
   const bad = await exec({ BLIZZARD_CLIENT_ID: '', BLIZZARD_CLIENT_SECRET: '', OUT_DIR: out });
   assert.notEqual(bad.status, 0);
 
+  rmSync(catalogFile, { force: true });
   console.log('ALL CHECKS PASSED');
 } finally {
   server.close();
