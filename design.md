@@ -197,7 +197,17 @@ These were built from documentation and forum reports, then tested against a moc
 - Blizzard allows 36,000 requests per hour per client. A full run of both regions uses roughly a few hundred auction requests plus item lookups, well under that.
 - Use only your own artwork and names in the app. Do not add Blizzard logos or art.
 
+## MoP Classic item sources and Professions tab
+- `static/mop-classic-sources.json` is built from Napalmsteak's WoW Classic Item Caches (`MoP Classic Cache.json`), used with the author's permission and credited in the page footer.
+- Build it with `node tools/build-classic-sources.mjs "<path>/MoP Classic Cache.json" static/mop-classic-sources.json` after cloning that repo. Re-run it when the dataset updates and commit the result. It is served from the site itself, not the data branch.
+- Format: `{ src: [[type, label]], items: { id: [sourceIndex] }, boss: { id: [names] }, craft: { id: profession }, recipes: { craftedId: { p, skill, r: [[itemId, qty]], by: recipeItemId } }, names: { id: name } }`. Cooking specialties ("Way of the Wok" and so on) are grouped as Cooking.
+- Coverage: 15,761 items with sources, 3,485 crafted items mapped to a profession, 259 recipes with material lists (taken from recipe item tooltips). Trade goods are mostly not in the dataset.
+- **Item popup:** a "How to get it" section lists the sources (raid, dungeon, vendor, quest, PvP, reputation, world drop, crafted), the bosses that drop it, gather notes, and the recipe materials with today's prices where listed.
+- **Top 10 profits:** dungeon and raid drops now come from this data for Classic. Crafted items with a full priced material list rank by profit; the rest rank by sell price after the cut and say the material cost is unknown.
+- **Professions tab:** groups the selected server's listings by the profession that makes them. Ranked by estimated gold sold per day once sales tracking has at least an hour of data, otherwise by value listed now (lowest price x quantity, counting only items with two or more listings). Each profession expands to its top 10 items. Gathering professions (Herbalism, Mining, Skinning) use the item categories and show a message while MoP Classic's commodities market is empty.
+- Item names in tables, cards and the sales list open the item popup.
+
 ## Outside data sources considered
 - **nexus-devs/wow-classic-items** (MIT license): 38,000 original-Classic items with sources (boss, quest, vendor, zone drop with drop chance), crafting reagents for about 3,200 items and vendor prices. Last updated 2022 and built by scraping Wowhead. It fits Classic Era best, but Era has no auction data, so it is not used yet.
-- **Napalmsteak/WoW-Classic-Item-Caches**: current data for every Classic version including MoP Classic and Forever, with dungeons, bosses, vendors, quests and recipe materials (inside Wowhead tooltip markup). It has no license file, so republishing it needs the author's permission. Not used.
+- **Napalmsteak/WoW-Classic-Item-Caches**: current data for every Classic version including MoP Classic and Forever. Used for MoP Classic with the author's permission (see above).
 - Wowhead links on every item cover what Blizzard's data does not.
