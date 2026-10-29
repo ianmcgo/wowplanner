@@ -1,7 +1,7 @@
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import path from 'node:path';
 
-const [dbDir, outFile] = process.argv.slice(2);
+const [dbDir, outFile, ratesFile] = process.argv.slice(2);
 if (!dbDir || !outFile) {
   console.error('Usage: node tools/build-questie-locations.mjs <QuestieDB checkout> static/mop-classic-locations.json');
   process.exit(1);
@@ -127,18 +127,30 @@ const npcs = await loadData(path.join(mop, 'mopNpcDB.lua'), 'QuestieDB.npcData')
 const objects = await loadData(path.join(mop, 'mopObjectDB.lua'), 'QuestieDB.objectData');
 const zoneNames = await loadZones(path.join(dbDir, 'src', 'corrections', 'enum', 'zones.lua'));
 const dropRates = await loadData(path.join(dbDir, 'support', 'DropTables', 'mopItemDrops.lua'), 'QuestieMopItemDrops.wowheadData');
+const extRates = ratesFile ? JSON.parse(await readFile(ratesFile, 'utf8')).items : {};
 
-const out = { v: 1, built: new Date().toISOString(), license: 'GPL-3.0, derived from QuestieDB (https://github.com/Questie/QuestieDB)', zones: {}, npcs: {}, objects: {}, items: {} };
+const out = { v: 1, built: new Date().toISOString(), license: 'Derived from QuestieDB and CMaNGOS (GPL-3.0); drop rates tagged ds=cata from the MaNGOS Three world database (CC BY-NC-SA 3.0)', zones: {}, npcs: {}, objects: {}, items: {} };
 const usedNpcs = new Set();
 const usedObjects = new Set();
 
 const pick = list => (Array.isArray(list) ? list.filter(x => typeof x === 'number') : []);
 
 let ratedItems = 0;
+let extRated = 0;
 for (const [id, row] of Object.entries(items)) {
   if (!Array.isArray(row)) continue;
   const vendors = pick(row[13]).filter(n => npcs[n] && npcs[n][6]);
-  const rates = dropRates[id] && typeof dropRates[id] === 'object' && !Array.isArray(dropRates[id]) ? dropRates[id] : {};
+  let rates = dropRates[id] && typeof dropRates[id] === 'object' && !Array.isArray(dropRates[id]) ? dropRates[id] : {};
+  let rateSource = Object.keys(rates).length ? 'mop' : null;
+  let total = 0;
+  if (!rateSource && extRates[id]) {
+    rates = Object.fromEntries(extRates[id].d.filter(([n]) => npcs[n] && npcs[n][6]).map(([n, p]) => [n, p]));
+    if (Object.keys(rates).length) {
+      rateSource = extRates[id].s;
+      total = extRates[id].n;
+      extRated++;
+    }
+  }
   const rate = n => (typeof rates[n] === 'number' ? rates[n] : -1);
   const drops = [...new Set([...pick(row[1]), ...Object.keys(rates).map(Number)])]
     .filter(n => npcs[n] && npcs[n][6])
@@ -149,10 +161,11 @@ for (const [id, row] of Object.entries(items)) {
   if (vendors.length) entry.v = vendors.slice(0, MAX_VENDORS);
   if (drops.length) {
     entry.d = drops.slice(0, MAX_DROPS);
-    if (drops.length > MAX_DROPS) entry.dn = drops.length;
+    if (Math.max(drops.length, total) > MAX_DROPS) entry.dn = Math.max(drops.length, total);
     const dc = entry.d.map(n => (rate(n) >= 0 ? Math.round(rate(n) * 100) / 100 : null));
     if (dc.some(x => x !== null)) {
       entry.dc = dc;
+      entry.ds = rateSource;
       ratedItems++;
     }
   }
@@ -182,5 +195,5 @@ for (const z of usedZones) out.zones[z] = zoneNames[z] || null;
 await mkdir(path.dirname(outFile), { recursive: true });
 await writeFile(outFile, JSON.stringify(out));
 const vendorItems = Object.values(out.items).filter(e => e.v).length;
-console.log('items with drop rates', ratedItems);
+console.log('items with drop rates', ratedItems, 'from private server tables', extRated);
 console.log('items', Object.keys(out.items).length, 'with vendors', vendorItems, 'npcs', Object.keys(out.npcs).length, 'objects', Object.keys(out.objects).length, 'zones', usedZones.size, 'named zones', Object.values(out.zones).filter(Boolean).length);

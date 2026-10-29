@@ -219,8 +219,12 @@ These were built from documentation and forum reports, then tested against a moc
 
 ### Drop chances
 - Drop percentages come from QuestieDB's `support/DropTables/mopItemDrops.lua` (`wowheadData`), which the Questie team built from Wowhead's player-collected loot statistics. It is part of QuestieDB and covered by the same GPLv3 terms.
-- It only covers items tied to quest objectives: 2,301 items in the build, about 20,000 mob rates. Gear and trade goods sold on the auction house are mostly not in it, and no open source with MoP Classic drop rates for those was found.
-- For covered items the droppers are sorted by drop chance and the popup shows "N% drop chance" next to each mob. Mobs from the drop table that are not in the item's NPC list are added. The rates are stored in `dc`, in the same order as `d`, with `null` where a mob has no rate.
+- It only covers items tied to quest objectives: 2,301 items, about 20,000 mob rates.
+- Every other item gets rates from private-server world databases, worked out by `tools/build-drop-rates.mjs` from each database's `creature_template` (LootId), `creature_loot_template` and `reference_loot_template`. Ungrouped rows use their own chance; grouped rows split the group's remaining chance equally among zero-chance rows; reference rows multiply the reference chance by the referenced table's chances (rolled `maxcount` times). Chances from several rows combine as 1 - product of (1 - p). Rates under 0.005% are dropped and the top 25 mobs per item are kept.
+- Sources, earliest wins per item: MaNGOS Three (Cataclysm 4.3.4, `mangosthree/database`, CC BY-NC-SA 3.0, tagged `cata`), then CMaNGOS Wrath, TBC and Classic (`cmangos/wotlk-db`, `tbc-db`, `classic-db`, GPLv3). 13,962 items got rates this way, for 16,263 in total.
+- These are private-server approximations from older expansions, so the popup names the source and notes that rates may differ in MoP Classic. MaNGOS Three's license is non-commercial: drop its `cata=` argument from the build if that does not fit the site.
+- Build: `node tools/build-drop-rates.mjs rates.json cata=<mangosthree>/World/Setup/FullDB wotlk=<WoTLKDB.sql.gz> tbc=<TBCDB.sql.gz> classic=<ClassicDB.sql.gz>`, then `node tools/build-questie-locations.mjs <QuestieDB> static/mop-classic-locations.json rates.json`.
+- For rated items the droppers are sorted by drop chance and the popup shows "N% drop chance" next to each mob. Mobs from the drop table that are not in the item's NPC list are added. The rates are stored in `dc`, in the same order as `d`, with `null` where a mob has no rate.
 
 ### Dropped by and Crafted by
 - The locations file keeps up to 8 vendors, 25 dropping creatures and 10 objects per item. When more creatures drop an item, `dn` holds the full count and the popup says "top 25 of N".

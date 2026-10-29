@@ -173,6 +173,7 @@ canvas { width: 100%; height: 220px; display: block; background: var(--panel-2);
 .zone-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
 .coords { color: var(--dim); font-size: .84rem; }
 .pct { float: right; color: #7bd88f; font-weight: 600; font-size: .88rem; margin-left: 8px; }
+.rate-src { color: var(--dim); font-size: .82rem; margin: -2px 0 6px; }
 .loc-h { margin: 10px 0 4px; font-size: .82rem; color: var(--dim); text-transform: uppercase; letter-spacing: .06em; font-weight: 600; }
 .mats { width: 100%; border-collapse: collapse; margin: 4px 0 6px; }
 .mats td, .mats th { padding: 5px 6px; text-align: right; white-space: nowrap; font-size: .92rem; border-bottom: 1px solid var(--line); }
@@ -417,7 +418,7 @@ footer p { margin: 4px 0; }
     <p>Created by Ian McGonigal &middot; <a href="https://ianmcgo.github.io/website/" target="_blank" rel="noopener">Website</a> &middot; <a href="https://www.patreon.com/cw/ianmcg" target="_blank" rel="noopener">Patreon</a></p>
     <p>Fan-made tool, not affiliated with Blizzard Entertainment. Data comes from the Battle.net Game Data API.</p>
     <p>Item sources and recipes from <a href="https://github.com/Napalmsteak/WoW-Classic-Item-Caches" target="_blank" rel="noopener">WoW Classic Item Caches</a> by Napalmsteak, used with permission.</p>
-    <p>Vendor, drop and spawn locations derived from <a href="https://github.com/Questie/QuestieDB" target="_blank" rel="noopener">QuestieDB</a> (GPLv3).</p>
+    <p>Vendor, drop and spawn locations derived from <a href="https://github.com/Questie/QuestieDB" target="_blank" rel="noopener">QuestieDB</a> (GPLv3). Drop chances also from the <a href="https://github.com/cmangos" target="_blank" rel="noopener">CMaNGOS</a> databases (GPLv3) and the <a href="https://github.com/mangosthree/database" target="_blank" rel="noopener">MaNGOS Three</a> world database (CC BY-NC-SA 3.0).</p>
   </div>
 </footer>
 
@@ -562,6 +563,13 @@ function mapSvg(zone, pts) {
 }
 
 const locState = { list: [], sel: 0, zone: null };
+const RATE_SOURCE = {
+  mop: 'Questie (Wowhead MoP Classic data)',
+  cata: 'the MaNGOS Three database (Cataclysm era)',
+  wotlk: 'the CMaNGOS Wrath database',
+  tbc: 'the CMaNGOS TBC database',
+  classic: 'the CMaNGOS Classic database'
+};
 
 function renderLocMap() {
   const src = locState.list[locState.sel];
@@ -621,7 +629,8 @@ async function fillLocations(id) {
     const rows = list.map((src, k) => [src, k]).filter(([src]) => src.role === role);
     if (!rows.length) continue;
     const of = role === 'Dropped by' && entry.dn ? ` (top ${rows.length} of ${entry.dn})` : ` (${rows.length})`;
-    html += `<h4 class="loc-h">${esc(role)}${esc(of)}</h4><ul class="loc-list">${rows.map(([src, k], j) => row(src, k, j >= 8)).join('')}</ul>`;
+    const note = role === 'Dropped by' && entry.ds ? `<div class="sub rate-src">Drop chances from ${esc(RATE_SOURCE[entry.ds] || entry.ds)}${entry.ds === 'mop' ? '' : '. Rates may differ in MoP Classic'}.</div>` : '';
+    html += `<h4 class="loc-h">${esc(role)}${esc(of)}</h4>${note}<ul class="loc-list">${rows.map(([src, k], j) => row(src, k, j >= 8)).join('')}</ul>`;
     if (rows.length > 8) html += `<button type="button" class="chip show-more">Show all ${rows.length}</button>`;
   }
   $('dlgLoc').innerHTML = `${html}<div id="locMap"></div>`;
