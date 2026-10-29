@@ -693,8 +693,25 @@ function classify(id, meta) {
   return 'other';
 }
 
-function computeProfits(method, minListings, meta) {
-  const price = new Map(state.snap.items.map(e => [e.i, e]));
+const commodityCache = new Map();
+
+function loadCommodities() {
+  if (state.game !== 'retail') return Promise.resolve(null);
+  const key = `${state.game}/${state.region}/commodities/latest.json.gz`;
+  if (!commodityCache.has(key)) commodityCache.set(key, fetchData(key).catch(() => null));
+  return commodityCache.get(key);
+}
+
+function combinedItems(commodities) {
+  const items = state.snap.items.slice();
+  if (!commodities || state.realmId === 'commodities') return items;
+  const have = new Set(items.map(e => e.i));
+  for (const e of commodities.items) if (!have.has(e.i)) items.push(e);
+  return items;
+}
+
+function computeProfits(method, minListings, meta, items) {
+  const price = new Map(items.map(e => [e.i, e]));
   const recipes = (meta.sources && meta.sources.recipes) || {};
   if (method === 'craft') {
     const best = new Map();
@@ -723,7 +740,7 @@ function computeProfits(method, minListings, meta) {
   }
   const crafted = new Set(Object.values(recipes).filter(Boolean).map(r => r.i));
   const out = [];
-  for (const e of state.snap.items) {
+  for (const e of items) {
     if (e.m === null || e.n < minListings) continue;
     if (classify(e.i, meta) !== method) continue;
     if (method !== 'dungeon' && crafted.has(e.i)) continue;
@@ -769,7 +786,9 @@ async function renderProfit() {
     setStatus('No dungeon or raid drop data is available for this game.');
     return;
   }
-  const list = computeProfits(state.method, minListings, meta);
+  const commodities = await loadCommodities();
+  if (seq !== state.seq || state.mode !== 'profit') return;
+  const list = computeProfits(state.method, minListings, meta, combinedItems(commodities));
   $('cards').innerHTML = list.map((it, i) => {
     const sellLabel = it.method === 'craft' && it.recipe.q > 1 ? `Sells ${it.recipe.q} for` : 'Sells for';
     return `<li class="card"><div class="rank">${i + 1}</div><div><div class="card-title"><a href="${wowheadUrl(it.id)}" target="_blank" rel="noopener">${esc(nameOf(it.id))}</a></div>` +

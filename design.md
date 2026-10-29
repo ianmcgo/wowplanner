@@ -89,6 +89,7 @@ Prices are in copper. 10000 copper is 1 gold.
 The tab works out profit in the browser from the selected server's latest prices plus `sources.json.gz` and `cats.json`.
 
 - **Crafted:** profit = lowest sell price x quantity made x (1 - 5% auction house cut) - reagent cost at today's lowest prices. Recipes with a reagent that has no auction listing (usually vendor-bought) are skipped. Only recipes with a profit above zero appear, best recipe per item.
+- **Region-wide commodities (Retail):** herbs, ore, leather and cloth are sold on the commodities market, not on a single server. On Retail the tab merges the commodities prices into the selected server's prices, so gathered items show up on every server.
 - **Gathered:** items categorized as herb, ore or leather and not crafted. Profit is the sell price minus the cut. The method shown is Herbalism, Mining or Skinning.
 - **Dungeon and raid drops:** items the Journal API lists as boss loot, with the boss and instance names.
 - **Other:** everything else, including cloth. The card says Blizzard's data does not tell where it comes from, and links to Wowhead.
