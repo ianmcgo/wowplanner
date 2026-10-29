@@ -159,7 +159,7 @@ canvas { width: 100%; height: 220px; display: block; background: var(--panel-2);
 .tabs button { border-radius: 10px; padding: 9px 16px; background: transparent; color: var(--dim); }
 .tabs button[aria-selected="true"] { background: var(--panel-2); color: var(--text); border-color: var(--accent); }
 .alt-mode .lf { display: none; }
-.zmap { width: 100%; display: block; background: #182031; border: 1px solid var(--line); border-radius: 10px; margin: 6px 0 4px; }
+.zmap { width: 100%; max-width: 560px; display: block; background: #182031; border: 1px solid var(--line); border-radius: 10px; margin: 6px 0 4px; }
 .zmap .gl { stroke: rgba(255, 255, 255, .07); stroke-width: .15; }
 .zmap .mk { fill: var(--accent); stroke: #0b0d12; stroke-width: .35; }
 .zmap .zl { fill: var(--dim); font-size: 3px; font-family: system-ui, sans-serif; }
@@ -172,6 +172,7 @@ canvas { width: 100%; height: 220px; display: block; background: var(--panel-2);
 .fac.h { color: #ff7b72; border-color: #9e3b3b; }
 .zone-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
 .coords { color: var(--dim); font-size: .84rem; }
+#dlgLoc a { color: var(--accent-2); font-size: .9rem; }
 .linkish { all: unset; cursor: pointer; color: inherit; }
 .linkish:hover, .linkish:focus-visible { color: var(--accent-2); text-decoration: underline; }
 .prof { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; margin-bottom: 10px; }
@@ -597,7 +598,7 @@ async function fillLocations(id) {
   locState.zones = loc.zones;
   const items = list.map((src, k) => {
     const zones = Object.keys(src.spawns).map(z => loc.zones[z] || `Zone ${z}`).join(', ');
-    const lvl = src.min ? ` \u00b7 level ${src.min}${src.max && src.max !== src.min ? '-' + src.max : ''}` : '';
+    const lvl = src.min && src.role !== 'Sold by' ? ` \u00b7 level ${src.min}${src.max && src.max !== src.min ? '-' + src.max : ''}` : '';
     const extra = src.kind === 'npc' ? `${src.sub ? ` &lt;${esc(src.sub)}&gt;` : ''}${src.role === 'Sold by' ? factionTag(src.fac) : ''}` : '';
     return `<li><button type="button" data-loc="${k}" aria-pressed="${String(k === 0)}"><b>${esc(src.role)}:</b> ${esc(src.name)}${extra}<div class="sub">${esc(zones)}${esc(lvl)}</div></button></li>`;
   }).join('');
@@ -922,8 +923,12 @@ async function fillHow(id) {
   const price = new Map(combinedItems(commodities).map(e => [e.i, e]));
   const recipe = recipeHtml(id, meta, price);
   const src = sourceHtml(id, meta);
-  $('dlgHow').innerHTML = (recipe || src
-    ? `${recipe}${src ? `<ul>${src}</ul>` : ''}`
+  const loc = await ensureLocations(game);
+  if (state.openId !== id || state.game !== game) return;
+  const le = loc && loc.items[id];
+  const locNote = le ? `<p>${le.v ? 'Sold by vendors' : ''}${le.v && (le.d || le.o) ? ', and ' : ''}${le.d ? 'dropped by creatures' : ''}${le.d && le.o ? ' and ' : ''}${le.o ? 'found in world objects' : ''}. See where to find it below.</p>` : '';
+  $('dlgHow').innerHTML = (recipe || src || locNote
+    ? `${recipe}${src ? `<ul>${src}</ul>` : ''}${locNote}`
     : '<p class="dim">No source is recorded for this item. It may be farmed, a quest reward or sold by a vendor.</p>') +
     `<a href="${wowheadUrl(id)}" target="_blank" rel="noopener">See every way to get it on Wowhead</a>`;
 }
@@ -960,6 +965,7 @@ function openDetail(id) {
   const dlg = $('detail');
   if (!dlg.open) dlg.showModal();
   $('dlgLocWrap').hidden = true;
+  $('dlgLoc').innerHTML = '';
   fillHow(id);
   fillLocations(id);
   drawChart();

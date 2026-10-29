@@ -207,7 +207,24 @@ These were built from documentation and forum reports, then tested against a moc
 - **Professions tab:** groups the selected server's listings by the profession that makes them. Ranked by estimated gold sold per day once sales tracking has at least an hour of data, otherwise by value listed now (lowest price x quantity, counting only items with two or more listings). Each profession expands to its top 10 items. Gathering professions (Herbalism, Mining, Skinning) use the item categories and show a message while MoP Classic's commodities market is empty.
 - Item names in tables, cards and the sales list open the item popup.
 
+## Vendors and locations (QuestieDB)
+- `static/mop-classic-locations.json` is built from QuestieDB's MoP data (`data/MoP/mopItemDB.lua`, `mopNpcDB.lua`, `mopObjectDB.lua`) and its zone list (`src/corrections/enum/zones.lua`). QuestieDB content may be reused under GPLv3 according to its license notes, so this derived file is marked GPL-3.0 and credited in the footer.
+- Build: `node tools/build-questie-locations.mjs <QuestieDB checkout> static/mop-classic-locations.json`. The script reads the Lua tables directly.
+- Format: `{ zones: { areaId: name }, npcs: { id: [name, title, faction "A"/"H"/"AH", minLevel, maxLevel, { areaId: [[x, y]] }] }, objects: { id: [name, { areaId: [[x, y]] }] }, items: { id: { v: [vendor npc ids], d: [dropping npc ids], o: [object ids] } } }`.
+- Limits per item: up to 6 vendors, 6 droppers and 6 objects. Per NPC or object: up to 3 zones and 30 points per zone. Coordinates are zone map percentages.
+- Zone names come from the enum constant names (for example `ELWYNN_FOREST` becomes "Elwynn Forest"). Six zones have no name and show as "Zone 1234".
+- The item popup has a "Where to find it" section: vendors with their title and faction, droppers with level range, and objects such as herb nodes or chests. Selecting one draws its spawn points on a plain zone grid (no game map art) with the coordinates listed below, plus a link to the full map on Wowhead.
+
+## Listing filters
+- **Category** uses Blizzard's item class: Weapon (2), Armor (4), Container (1, 11), Consumable (0), Trade Goods (7 plus gems 3, reagents 5 and item enhancements 8), Recipe (9), and Quest / Miscellaneous for everything else (quest items, pets, mounts, keys, glyphs).
+- **Wearable by** keeps only equippable gear the chosen class can use in MoP: cloth and miscellaneous slots for everyone, leather, mail, plate and shields by class, weapon types by class (ranged weapons are Hunter only, wands are Mage, Priest and Warlock), and any "Classes:" restriction on the item.
+- Both use `{game}/iteminfo.json` (`id: [itemClass, itemSubclass, inventoryType, allowedClassIds?]`), saved by the collector during item lookups. Items not yet looked up are hidden while a filter is on.
+- Item names are colored by rarity (from the tooltip data) in every table and card.
+
 ## Outside data sources considered
 - **nexus-devs/wow-classic-items** (MIT license): 38,000 original-Classic items with sources (boss, quest, vendor, zone drop with drop chance), crafting reagents for about 3,200 items and vendor prices. Last updated 2022 and built by scraping Wowhead. It fits Classic Era best, but Era has no auction data, so it is not used yet.
 - **Napalmsteak/WoW-Classic-Item-Caches**: current data for every Classic version including MoP Classic and Forever. Used for MoP Classic with the author's permission (see above).
-- Wowhead links on every item cover what Blizzard's data does not.
+- **Questie / QuestieDB**: used for vendors, drops and spawn locations (see above).
+- **cmangos/classic-db** and **dkpminus/Classic-Wow-Database**: SQL world databases for patch 1.12 (original Classic). They have vendors, loot tables and spawn coordinates, but only for 1.12 content, and QuestieDB already covers MoP Classic with the same kind of data. Useful only if Classic Era auction data becomes available.
+- **WowUp**: an addon manager, with no item data.
+- Wowhead links on every item cover what the other sources do not.
