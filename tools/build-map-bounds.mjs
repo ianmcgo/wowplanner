@@ -71,6 +71,7 @@ async function pickBuild() {
 
 const table = async (name, build) => parseCsv(await get(`${BASE}/db2/${name}/csv?build=${encodeURIComponent(build)}`, 'text'));
 const num = v => (v === undefined || v === '' ? 0 : Number(v));
+const f = (row, name, k) => num(row[`${name}_${k}`] ?? row[`${name}[${k}]`]);
 const r2 = v => Math.round(v * 1000) / 1000;
 
 const build = await pickBuild();
@@ -87,9 +88,9 @@ for (const m of maps) out.maps[String(m.Directory || '').toLowerCase()] = [num(m
 for (const u of uiMaps) out.ui[u.ID] = [u.Name_lang || u.Name || '', num(u.ParentUiMapID), num(u.Type)];
 for (const a of assigns) {
   out.assign.push([
-    num(a.UiMapID), num(a.MapID), num(a.AreaID), num(a.OrderIndex), num(a.WmoDoodadPlacementID), num(a.WmoGroupID),
-    r2(num(a['UiMin[0]'])), r2(num(a['UiMin[1]'])), r2(num(a['UiMax[0]'])), r2(num(a['UiMax[1]'])),
-    r2(num(a['Region[0]'])), r2(num(a['Region[1]'])), r2(num(a['Region[2]'])), r2(num(a['Region[3]'])), r2(num(a['Region[4]'])), r2(num(a['Region[5]']))
+    num(a.UiMapID), num(a.MapID), num(a.AreaID), num(a.OrderIndex), num(a.WMODoodadPlacementID ?? a.WmoDoodadPlacementID), num(a.WMOGroupID ?? a.WmoGroupID),
+    r2(f(a, 'UiMin', 0)), r2(f(a, 'UiMin', 1)), r2(f(a, 'UiMax', 0)), r2(f(a, 'UiMax', 1)),
+    r2(f(a, 'Region', 0)), r2(f(a, 'Region', 1)), r2(f(a, 'Region', 2)), r2(f(a, 'Region', 3)), r2(f(a, 'Region', 4)), r2(f(a, 'Region', 5))
   ]);
 }
 for (const g of groups) out.groups[g.UiMapID] = [num(g.UiMapGroupID), num(g.RelativeHeightIndex), g.Name_lang || ''];
