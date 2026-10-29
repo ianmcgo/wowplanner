@@ -8,7 +8,7 @@ from PIL import Image, ImageDraw
 
 SRC = sys.argv[1] if len(sys.argv) > 1 else 'wow.export/zones'
 OUT = 'static/maps'
-CHECK = sys.argv[2] if len(sys.argv) > 2 else None
+CHECK = sys.argv[2] if len(sys.argv) > 2 and sys.argv[2] != '--new' else None
 LOC = 'static/loc'
 INSTANCES = 'static/instance-drops.json'
 
@@ -41,6 +41,8 @@ for path in files:
         continue
     area = m.group(1)
     name = m.group(2).rsplit('_', 1)[0].replace('_', ' ')
+    if '--new' in sys.argv and index['zones'].get(area, {}).get('src') == 'zone':
+        continue
     img = Image.open(path).convert('RGBA')
     bg = Image.new('RGBA', img.size, (24, 32, 49, 255))
     bg.alpha_composite(img)

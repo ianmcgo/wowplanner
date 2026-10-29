@@ -125,6 +125,76 @@
    "src": "zone",
    "name": "Mount Hyjal",
    "kb": 132
+  },
+  "139": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Eastern Plaguelands",
+   "kb": 140
+  },
+  "3521": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Zangarmarsh",
+   "kb": 137
+  },
+  "3522": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Blades Edge Mountains",
+   "kb": 137
+  },
+  "3523": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Netherstorm",
+   "kb": 143
+  },
+  "405": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Desolace",
+   "kb": 151
+  },
+  "490": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "UnGoro Crater",
+   "kb": 122
+  },
+  "5841": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Kun-Lai Summit",
+   "kb": 126
+  },
+  "618": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Winterspring",
+   "kb": 164
+  },
+  "65": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Dragonblight",
+   "kb": 180
+  },
+  "6757": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Timeless Isle",
+   "kb": 123
   }
  },
  "instances": {
