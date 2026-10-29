@@ -255,6 +255,9 @@ These were built from documentation and forum reports, then tested against a moc
 - Both use `{game}/iteminfo.json` (`id: [itemClass, itemSubclass, inventoryType, allowedClassIds or 0, itemLevel, requiredLevel, dps, armor]`), saved by the collector during item lookups. Raising `INFO_VERSION` makes the next runs look every item up again. Items not yet looked up are hidden while a filter is on.
 - **Item level** min and max narrow the listings to an item level range.
 - **Sort by**: quantity, listings, lowest price, name, item level, required level, DPS (weapons) or armor value. The table has iLvl, Req and DPS / Armor columns; clicking the Item, iLvl, Req, Quantity, Listings or Lowest price headers also sorts and flips direction. Items without the chosen stat go to the end.
+- **Required level** min and max filter the same way (items with no requirement count as level 0).
+- **DPS** and **Armor** are separate columns; click either header to sort, click again to flip.
+- **Show all items** adds every item in the game catalog that is not listed on the server (shown as "not listed"), so filters and sorting work across all of MoP Classic. The catalog is `static/mop-classic-items.json`, built by the wago.tools workflow from `ItemSparse` and `Item`: `id: [name, quality, itemLevel, requiredLevel, classId, subclassId, inventoryType, allowableClassMask]`. 83,573 items; test, deprecated and placeholder names are left out. It loads only when the box is ticked. Unlisted items use the catalog for item level, required level, category, class and quality; DPS and armor exist only for items the collector has looked up.
 - The server picker is a plain dropdown.
 - If the collector has not saved an item's stats yet, the page reads required level, DPS and armor from the item's tooltip lines instead. Item level is not in MoP Classic tooltips, so it waits for the collector.
 - Item names are colored by rarity (from the tooltip data) in every table and card.

@@ -159,6 +159,8 @@ canvas { width: 100%; height: 220px; display: block; background: var(--panel-2);
 .tabs button[aria-selected="true"] { background: var(--panel-2); color: var(--text); border-color: var(--accent); }
 .alt-mode .lf { display: none; }
 .pair { display: flex; gap: 6px; }
+.check-row { display: flex; align-items: center; gap: 8px; text-transform: none; letter-spacing: 0; font-size: .92rem; color: var(--text); padding: 9px 0; cursor: pointer; }
+.check-row input { width: 18px; height: 18px; accent-color: var(--accent); }
 .pair input { min-width: 0; }
 thead th.plain { padding: 10px 12px; }
 .zmap { width: 100%; max-width: 560px; display: block; background: #182031; border: 1px solid var(--line); border-radius: 10px; margin: 6px 0 4px; }
@@ -281,6 +283,13 @@ footer p { margin: 4px 0; }
       </div>
     </div>
     <div class="field lf">
+      <label for="reqMin">Required level</label>
+      <div class="pair">
+        <input type="number" id="reqMin" min="0" step="1" inputmode="numeric" placeholder="Min" aria-label="Minimum required level">
+        <input type="number" id="reqMax" min="0" step="1" inputmode="numeric" placeholder="Max" aria-label="Maximum required level">
+      </div>
+    </div>
+    <div class="field lf">
       <label for="sortBy">Sort by</label>
       <select id="sortBy">
         <option value="q">Quantity</option>
@@ -292,6 +301,10 @@ footer p { margin: 4px 0; }
         <option value="dps">DPS (weapons)</option>
         <option value="armor">Armor value</option>
       </select>
+    </div>
+    <div class="field lf check">
+      <label for="showAll">Items</label>
+      <label class="check-row"><input type="checkbox" id="showAll"> Show all items, not just listed ones</label>
     </div>
     <div class="field lf">
       <label for="category">Category</label>
@@ -338,7 +351,8 @@ footer p { margin: 4px 0; }
           <th data-key="name" aria-sort="none"><button type="button">Item</button></th>
           <th data-key="ilvl" aria-sort="none"><button type="button">iLvl</button></th>
           <th data-key="req" class="hide-sm" aria-sort="none"><button type="button">Req</button></th>
-          <th class="plain">DPS / Armor</th>
+          <th data-key="dps" aria-sort="none"><button type="button">DPS</button></th>
+          <th data-key="armor" aria-sort="none"><button type="button">Armor</button></th>
           <th data-key="q" aria-sort="descending"><button type="button">Quantity</button></th>
           <th data-key="n" class="hide-sm" aria-sort="none"><button type="button">Listings</button></th>
           <th data-key="m" aria-sort="none"><button type="button">Lowest price</button></th>
@@ -524,7 +538,7 @@ function moneyText(c) {
 }
 
 function nameOf(id) {
-  return state.names[id] || (state.ext && state.ext.names[id]) || `Item #${id}`;
+  return state.names[id] || (state.ext && state.ext.names[id]) || (state.catalog && state.catalog[id] && state.catalog[id][0]) || `Item #${id}`;
 }
 
 const EXT_FILES = { classic: 'static/mop-classic-sources.json' };
@@ -762,9 +776,54 @@ function iconUrl(id) {
   return ic.startsWith('http') ? ic : `${state.icons.base}${ic}.jpg`;
 }
 
+const QUALITY_BY_INDEX = ['POOR', 'COMMON', 'UNCOMMON', 'RARE', 'EPIC', 'LEGENDARY', 'ARTIFACT', 'HEIRLOOM'];
+
 function qs(id) {
-  const q = state.tips && state.tips[id] && state.tips[id].q;
+  let q = state.tips && state.tips[id] && state.tips[id].q;
+  if (!q && state.catalog && state.catalog[id]) q = QUALITY_BY_INDEX[state.catalog[id][1]];
   return q && QUALITY_COLOR[q] ? ` style="color:${QUALITY_COLOR[q]}"` : '';
+}
+
+const CATALOG_FILES = { classic: 'static/mop-classic-items.json' };
+const catalogCache = new Map();
+const INV_NAMES = { 0: 'NON_EQUIP', 18: 'BAG', 24: 'AMMO', 27: 'QUIVER' };
+
+function ensureCatalog(game) {
+  if (!CATALOG_FILES[game]) return Promise.resolve(null);
+  if (!catalogCache.has(game)) catalogCache.set(game, fetchStatic(CATALOG_FILES[game]).then(d => (d ? d.items : null)));
+  return catalogCache.get(game);
+}
+
+function catalogInfo(id) {
+  const c = state.catalog && state.catalog[id];
+  if (!c) return null;
+  const mask = c[7];
+  let classes = 0;
+  if (mask > 0 && (mask & 2047) !== 2047) {
+    classes = [];
+    for (let k = 1; k <= 11; k++) if (mask & (1 << (k - 1))) classes.push(k);
+  }
+  return [c[4], c[5], INV_NAMES[c[6]] || `INV${c[6]}`, classes, c[2], c[3], 0, 0];
+}
+
+function getInfo(id) {
+  return (state.info && state.info[id]) || catalogInfo(id);
+}
+
+let unlistedCache = { snap: null, catalog: null, list: [] };
+
+function unlistedItems() {
+  if (!state.catalog) return [];
+  if (unlistedCache.snap === state.snap && unlistedCache.catalog === state.catalog) return unlistedCache.list;
+  const have = new Set(state.snap.items.map(e => e.i));
+  const junk = /deprecated|^old|\(old\)|^test|\btest\b|^zz|\[ph\]|^monster -|unused|^qa /i;
+  const list = [];
+  for (const [id, c] of Object.entries(state.catalog)) {
+    const n = Number(id);
+    if (!have.has(n) && !junk.test(c[0])) list.push({ i: n, q: 0, n: 0, m: null, l: [], unlisted: true });
+  }
+  unlistedCache = { snap: state.snap, catalog: state.catalog, list };
+  return list;
 }
 
 function iconHtml(id) {
@@ -857,6 +916,8 @@ async function loadRealm() {
     state.ext = ext;
     state.tips = tips;
     tipStatCache.clear();
+    state.catalog = $('showAll').checked || state.catalog ? await ensureCatalog(state.game) : null;
+    if (seq !== state.seq) return;
     nameCache.set(state.game, names);
     iconCache.set(state.game, icons);
     state.snap = snap;
@@ -885,16 +946,24 @@ function filteredRows() {
   const wc = Number($('wearClass').value) || 0;
   const lmin = parseInt($('ilvlMin').value, 10);
   const lmax = parseInt($('ilvlMax').value, 10);
+  const rmin = parseInt($('reqMin').value, 10);
+  const rmax = parseInt($('reqMax').value, 10);
   const out = [];
-  for (const e of state.snap.items) {
+  const pool = $('showAll').checked && state.catalog ? state.snap.items.concat(unlistedItems()) : state.snap.items;
+  for (const e of pool) {
     if (!isNaN(lmin) || !isNaN(lmax)) {
       const lv = statOf(e.i, 4);
       if (!lv) continue;
       if (!isNaN(lmin) && lv < lmin) continue;
       if (!isNaN(lmax) && lv > lmax) continue;
     }
+    if (!isNaN(rmin) || !isNaN(rmax)) {
+      const rv = statOf(e.i, 5);
+      if (!isNaN(rmin) && rv < rmin) continue;
+      if (!isNaN(rmax) && rv > rmax) continue;
+    }
     if (cat || wc) {
-      const info = state.info && state.info[e.i];
+      const info = getInfo(e.i);
       if (!info) continue;
       if (cat && categoryOf(info) !== cat) continue;
       if (wc && !wearable(info, wc)) continue;
@@ -951,7 +1020,11 @@ function tipStats(id) {
 function statOf(id, k) {
   const info = state.info && state.info[id];
   if (info && typeof info[k] === 'number' && info[k]) return info[k];
-  return tipStats(id)[k] || 0;
+  const t = tipStats(id)[k];
+  if (t) return t;
+  const c = state.catalog && state.catalog[id];
+  if (c && (k === 4 || k === 5)) return c[k === 4 ? 2 : 3] || 0;
+  return 0;
 }
 
 function statText(id) {
@@ -969,7 +1042,7 @@ function render() {
   if (state.page >= pages) state.page = pages - 1;
   const slice = list.slice(state.page * PAGE_SIZE, (state.page + 1) * PAGE_SIZE);
   $('rows').innerHTML = slice.map(({ e, name }) =>
-    `<tr data-id="${e.i}" tabindex="0"><td>${iconHtml(e.i)}<span${qs(e.i)}>${esc(name)}</span></td><td>${statOf(e.i, 4) || '<span class="dim">-</span>'}</td><td class="hide-sm">${statOf(e.i, 5) || '<span class="dim">-</span>'}</td><td>${statText(e.i)}</td><td>${e.q.toLocaleString()}</td><td class="hide-sm">${e.n.toLocaleString()}</td><td>${money(e.m)}</td></tr>`
+    `<tr data-id="${e.i}" tabindex="0"><td>${iconHtml(e.i)}<span${qs(e.i)}>${esc(name)}</span></td><td>${statOf(e.i, 4) || '<span class="dim">-</span>'}</td><td class="hide-sm">${statOf(e.i, 5) || '<span class="dim">-</span>'}</td><td>${statOf(e.i, 6) ? statOf(e.i, 6).toFixed(1) : '<span class="dim">-</span>'}</td><td>${statOf(e.i, 7) ? statOf(e.i, 7).toLocaleString() : '<span class="dim">-</span>'}</td><td>${e.unlisted ? '<span class="dim">-</span>' : e.q.toLocaleString()}</td><td class="hide-sm">${e.unlisted ? '<span class="dim">-</span>' : e.n.toLocaleString()}</td><td>${e.unlisted ? '<span class="dim">not listed</span>' : money(e.m)}</td></tr>`
   ).join('');
   $('empty').hidden = list.length > 0;
   $('empty').textContent = 'No items match your filters.';
@@ -977,7 +1050,10 @@ function render() {
   $('prev').disabled = state.page === 0;
   $('next').disabled = state.page >= pages - 1;
   const realm = state.snap.realms.join(' / ');
-  setStatus(`${realm}: ${list.length.toLocaleString()} items shown of ${state.snap.items.length.toLocaleString()}. Updated ${ago(state.snap.u)}.`);
+  const listedShown = list.filter(x => !x.e.unlisted).length;
+  setStatus($('showAll').checked && state.catalog
+    ? `${realm}: ${list.length.toLocaleString()} items shown (${listedShown.toLocaleString()} listed, ${(list.length - listedShown).toLocaleString()} not listed). Updated ${ago(state.snap.u)}.`
+    : `${realm}: ${list.length.toLocaleString()} items shown of ${state.snap.items.length.toLocaleString()}. Updated ${ago(state.snap.u)}.`);
   document.querySelectorAll('thead th[data-key]').forEach(th => {
     th.setAttribute('aria-sort', th.dataset.key === state.sortKey ? (state.sortDir === 1 ? 'ascending' : 'descending') : 'none');
   });
@@ -1151,7 +1227,8 @@ function openDetail(id) {
   const listed = findItem(id);
   const e = listed || { i: id, q: 0, n: 0, m: null, l: [] };
   $('dlgTitle').textContent = nameOf(id);
-  $('dlgTitle').style.color = '';
+  const catQ = state.catalog && state.catalog[id] ? QUALITY_COLOR[QUALITY_BY_INDEX[state.catalog[id][1]]] : '';
+  $('dlgTitle').style.color = catQ || '';
   $('dlgTip').hidden = true;
   state.openId = id;
   $('dlgHow').innerHTML = '<p class="dim">Loading</p>';
@@ -1624,6 +1701,16 @@ $('dlgLoc').addEventListener('click', ev => {
     renderLocMap();
   }
 });
+$('showAll').addEventListener('change', async () => {
+  store.set('ah.showAll', $('showAll').checked ? '1' : '');
+  if ($('showAll').checked && !state.catalog) {
+    setStatus('Loading the full item list');
+    state.catalog = await ensureCatalog(state.game);
+  }
+  state.page = 0;
+  render();
+});
+if (store.get('ah.showAll') === '1') $('showAll').checked = true;
 for (const fid of ['category', 'wearClass']) {
   const saved = store.get('ah.' + fid);
   if (saved && [...$(fid).options].some(o => o.value === saved)) $(fid).value = saved;
@@ -1666,7 +1753,7 @@ $('realm').addEventListener('change', () => {
   loadRealm();
 });
 let searchTimer = null;
-['search', 'minPrice', 'maxPrice', 'ilvlMin', 'ilvlMax'].forEach(id => $(id).addEventListener('input', () => {
+['search', 'minPrice', 'maxPrice', 'ilvlMin', 'ilvlMax', 'reqMin', 'reqMax'].forEach(id => $(id).addEventListener('input', () => {
   clearTimeout(searchTimer);
   searchTimer = setTimeout(() => { state.page = 0; render(); }, 150);
 }));
