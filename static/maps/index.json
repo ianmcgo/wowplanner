@@ -1063,6 +1063,76 @@
    "src": "zone",
    "name": "ZulAman",
    "kb": 131
+  },
+  "3820": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Eye of the Storm",
+   "kb": 106
+  },
+  "3959": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Black Temple",
+   "kb": 86
+  },
+  "4075": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Sunwell Plateau",
+   "kb": 99
+  },
+  "4384": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Strand of the Ancients",
+   "kb": 132
+  },
+  "4732": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Emberstone Mine",
+   "kb": 96
+  },
+  "4817": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Greymane Manor",
+   "kb": 102
+  },
+  "5031": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Twin Peaks",
+   "kb": 127
+  },
+  "5166": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Cleft of Shadow",
+   "kb": 101
+  },
+  "5351": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Ruins of Gilneas City",
+   "kb": 106
+  },
+  "5396": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Lost City of the Tolvir",
+   "kb": 118
   }
  },
  "instances": {
@@ -1213,7 +1283,7 @@
    "kb": 104
   },
   "Black Temple": {
-   "img": "z6613",
+   "img": "z3959",
    "w": 1002,
    "h": 668,
    "src": "zone",
@@ -1281,6 +1351,20 @@
    "h": 668,
    "src": "zone",
    "kb": 131
+  },
+  "Sunwell Plateau": {
+   "img": "z4075",
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "kb": 99
+  },
+  "Lost City of the Tol'vir": {
+   "img": "z5396",
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "kb": 118
   }
  }
 }
