@@ -332,6 +332,7 @@ footer p { margin: 4px 0; }
 .loc-fold[open] > summary::before { transform: rotate(90deg); }
 .loc-fold > summary .loc-h { margin: 0; }
 .tick-wait { color: var(--dim); cursor: default; border-right: 0; }
+.tick-realm { color: var(--dim); font-size: .74rem; }
 .ticker-track:has(.tick-wait) { animation: none; }
 @keyframes ticker-move { from { transform: translateX(0); } to { transform: translateX(-50%); } }
 @media (prefers-reduced-motion: reduce) {
@@ -375,6 +376,14 @@ footer p { margin: 4px 0; }
     <div class="field wide">
       <label for="realm">Server</label>
       <select id="realm"></select>
+    </div>
+    <div class="field">
+      <label for="faction">Your faction</label>
+      <select id="faction">
+        <option value="">Both</option>
+        <option value="A">Alliance</option>
+        <option value="H">Horde</option>
+      </select>
     </div>
     <div class="field lf">
       <label for="search">Item name</label>
@@ -835,6 +844,25 @@ function wearable(info, cls) {
   return false;
 }
 
+function myFaction() {
+  const f = store.get('ah.faction');
+  return f === 'A' || f === 'H' ? f : '';
+}
+
+function factionOk(f) {
+  const me = myFaction();
+  if (!me || !f) return true;
+  const s = String(f);
+  if (s !== 'A' && s !== 'H' && s !== 'AH' && s !== 'HA') return true;
+  return s.includes(me);
+}
+
+function listingOk(l) {
+  const me = myFaction();
+  if (!me || !l[3]) return true;
+  return String(l[3]).charAt(0).toUpperCase() === me;
+}
+
 function factionTag(f) {
   if (f === 'A') return '<span class="fac a">Alliance</span>';
   if (f === 'H') return '<span class="fac h">Horde</span>';
@@ -912,6 +940,7 @@ async function fillLocations(id) {
       const row = kind === 'npc' ? loc.npcs[n] : loc.objects[n];
       if (!row) return;
       const chance = chances && typeof chances[j] === 'number' ? chances[j] : null;
+      if (kind === 'npc' && role === 'Sold by' && !factionOk(row[2])) return;
       if (kind === 'npc') list.push({ id: n, kind, role, name: row[0], sub: row[1], fac: row[2], min: row[3], max: row[4], spawns: row[5], chance });
       else list.push({ id: n, kind: 'object', role, name: row[0], spawns: row[1] });
     });
@@ -1219,7 +1248,8 @@ async function onRegion(restore) {
   state.realms = realmCache.get(key);
   const saved = restore ? store.get('ah.realm') : null;
   const found = state.realms.find(r => String(r.id) === saved);
-  state.realmId = found ? found.id : state.realms[0].id;
+  const biggest = state.realms.reduce((a, r) => ((r.names || []).length > (a.names || []).length ? r : a), state.realms[0]);
+  state.realmId = found ? found.id : biggest.id;
   fillRealms();
   $('realm').value = state.realmId;
   await loadRealm();
@@ -1458,6 +1488,40 @@ function priceMoves(snap, hist) {
   return moves.slice(0, TICKER_MAX);
 }
 
+function histMoves(hist, realm) {
+  const moves = [];
+  for (const [id, pts] of Object.entries(hist.h || {})) {
+    if (!pts.length) continue;
+    const last = pts.reduce((a, p) => (p[0] > a[0] ? p : a), pts[0]);
+    if ((last[2] || 0) < TICKER_MIN_LISTINGS) continue;
+    const target = last[0] - 86400;
+    let old = null;
+    for (const p of pts) {
+      if (p[0] > last[0] - 2700) continue;
+      if (!old || Math.abs(p[0] - target) < Math.abs(old[0] - target)) old = p;
+    }
+    if (!old || old[1] < TICKER_MIN_PRICE) continue;
+    const pct = ((last[1] - old[1]) / old[1]) * 100;
+    if (Math.abs(pct) < 1 || pct > TICKER_MAX_UP || pct < -TICKER_MAX_DOWN) continue;
+    moves.push({ id: Number(id), pct, hours: (last[0] - old[0]) / 3600, price: last[1], realm });
+  }
+  return moves;
+}
+
+async function regionMoves() {
+  const others = (state.realms || []).filter(r => r.id !== state.realmId && r.id !== 'commodities');
+  const hists = await Promise.all(others.map(r => fetchData(`${state.game}/${state.region}/${r.id}/history.json.gz`).then(h => [r, h]).catch(() => [r, null])));
+  const best = new Map();
+  for (const [r, h] of hists) {
+    if (!h || !h.h) continue;
+    for (const m of histMoves(h, (r.names || [String(r.id)])[0])) {
+      const cur = best.get(m.id);
+      if (!cur || Math.abs(m.pct) > Math.abs(cur.pct)) best.set(m.id, m);
+    }
+  }
+  return [...best.values()].sort((a, b) => Math.abs(b.pct) - Math.abs(a.pct)).slice(0, TICKER_MAX);
+}
+
 function pctText(pct) {
   const a = Math.abs(pct);
   return (pct > 0 ? '\u25B2 +' : '\u25BC -') + a.toLocaleString(undefined, { maximumFractionDigits: a >= 100 ? 0 : 1 }) + '%';
@@ -1474,7 +1538,18 @@ async function renderTicker() {
     hist = null;
   }
   if (seq !== state.seq || snap !== state.snap) return;
-  const moves = hist && hist.h ? priceMoves(snap, hist) : [];
+  let moves = hist && hist.h ? priceMoves(snap, hist) : [];
+  let wide = false;
+  if (moves.length < 3) {
+    try {
+      const rm = await regionMoves();
+      if (seq !== state.seq || snap !== state.snap) return;
+      if (rm.length >= 3) {
+        moves = rm;
+        wide = true;
+      }
+    } catch {}
+  }
   if (moves.length < 3) {
     const track = $('tickerTrack');
     $('tickerLabel').textContent = 'Price moves';
@@ -1483,10 +1558,10 @@ async function renderTicker() {
     return;
   }
   const hrs = Math.round(Math.max(...moves.map(m => m.hours)));
-  const label = hrs >= 20 ? '24h moves' : `${Math.max(1, hrs)}h moves`;
+  const label = (wide ? 'Other servers \u00b7 ' : '') + (hrs >= 20 ? '24h moves' : `${Math.max(1, hrs)}h moves`);
   $('tickerLabel').textContent = label;
   $('ticker').setAttribute('aria-label', `Biggest price changes over the last ${hrs >= 20 ? 24 : Math.max(1, hrs)} hours`);
-  const group = moves.map(m => `<button type="button" class="tick" data-open="${m.id}" title="${esc(nameOf(m.id))}: lowest price ${esc(moneyText(snap.items.find(x => x.i === m.id).m))}">${iconHtml(m.id)}<span class="tick-name"${qs(m.id)}>${esc(nameOf(m.id))}</span><span class="${m.pct > 0 ? 'tick-up' : 'tick-down'}">${pctText(m.pct)}</span></button>`).join('');
+  const group = moves.map(m => `<button type="button" class="tick" data-open="${m.id}" title="${esc(nameOf(m.id))}: lowest price ${esc(moneyText(m.price !== undefined ? m.price : snap.items.find(x => x.i === m.id).m))}${m.realm ? ` on ${esc(m.realm)}` : ''}">${iconHtml(m.id)}<span class="tick-name"${qs(m.id)}>${esc(nameOf(m.id))}</span>${m.realm ? `<span class="tick-realm">${esc(m.realm)}</span>` : ''}<span class="${m.pct > 0 ? 'tick-up' : 'tick-down'}">${pctText(m.pct)}</span></button>`).join('');
   const track = $('tickerTrack');
   $('ticker').hidden = false;
   track.innerHTML = group;
@@ -1705,9 +1780,10 @@ function openDetail(id) {
   ].map(([k, v]) => `<div class="stat"><b>${k}</b>${v}</div>`).join('');
   if (!listed) $('dlgStats').innerHTML = '<div class="stat"><b>Auction house</b>Not listed on this server right now</div>';
   $('listingsTable').classList.toggle('nofaction', !e.l.some(l => l[3]));
-  $('dlgListings').innerHTML = e.l.length
-    ? e.l.map(l => `<tr><td>${l[0].toLocaleString()}</td><td>${money(l[1])}</td><td>${money(l[0] * l[1])}</td><td>${esc(TIME_LABEL[l[2]] || '')}</td><td>${esc(l[3] ? l[3][0].toUpperCase() + l[3].slice(1) : '')}</td></tr>`).join('')
-    : '<tr><td colspan="5" class="dim">No buyout listings.</td></tr>';
+  const shownL = e.l.filter(listingOk);
+  $('dlgListings').innerHTML = shownL.length
+    ? shownL.map(l => `<tr><td>${l[0].toLocaleString()}</td><td>${money(l[1])}</td><td>${money(l[0] * l[1])}</td><td>${esc(TIME_LABEL[l[2]] || '')}</td><td>${esc(l[3] ? l[3][0].toUpperCase() + l[3].slice(1) : '')}</td></tr>`).join('')
+    : `<tr><td colspan="5" class="dim">${e.l.length ? 'No listings on your faction\'s auction house.' : 'No buyout listings.'}</td></tr>`;
   chartPoints = [];
   $('chartTip').textContent = 'Loading history';
   const dlg = $('detail');
@@ -2469,6 +2545,11 @@ $('dlgLoc').addEventListener('click', ev => {
     locState.zone = z.dataset.zone;
     renderLocMap();
   }
+});
+$('faction').value = myFaction();
+$('faction').addEventListener('change', () => {
+  store.set('ah.faction', $('faction').value);
+  if ($('detail').open && state.openId) openDetail(state.openId);
 });
 $('showAll').addEventListener('change', async () => {
   store.set('ah.showAll', $('showAll').checked ? '1' : '');

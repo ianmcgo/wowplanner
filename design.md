@@ -356,3 +356,18 @@ These were built from documentation and forum reports, then tested against a moc
 - Not used: the phased maps (Redridge, Uldum, Twilight Highlands, Hyjal, Desolace, Theramore, turtle ship, gunships), the Northrend phase maps 2565 and 2567, battlegrounds with no spawn data, and Scholomance OLD and Scarlet Monastery of Old, which are not the MoP versions.
 - To add more: export more maps into the same folder (the big continents, Eastern Kingdoms and Kalimdor, would cover most zones), add the area id, UI map id and folder to `ZONES` or the instance name and folder to `INSTANCES` in the script, and rerun it.
 - The spawn map SVG uses the image's own aspect ratio, draws markers with a white outline and puts the zone name on a dark label. Zones without art keep the plain grid.
+
+## Ticker fallback and default server
+- Small servers (Arugal, for example) often have fewer than 3 qualifying price changes, which used to leave the ticker on its "not enough price changes" message. When that happens the ticker now loads the other servers' history files and shows their biggest moves instead, labelled "Other servers", with the server name after each item. It uses the same rules (at least 3 listings, a price of at least 1 silver, 1% to 1,000% up or up to 95% down), comparing each item's latest history point with the point closest to 24 hours earlier.
+- With no saved server, the page opens on the connected realm with the most member servers (Pagle and its group) instead of the first in the list.
+
+## Your faction
+- A "Your faction" picker (Both, Alliance, Horde) sits next to the server and is remembered. With a faction chosen, "Sold by" in the item popup hides vendors of the other faction (vendors friendly to both, and those with no faction, stay), and Cheapest listings hides listings marked for the other faction's auction house.
+- MoP Classic's API currently returns one shared house per server, so listings carry no faction yet and nothing is hidden. When faction houses show up in the data (the listing's fourth field), the same setting will limit listings to your own house.
+- Crafting costs still use any gold vendor's price, whichever faction it is.
+
+## Zone maps (world map art)
+- `C:\Users\maund\wow.export\zones` holds 189 world map images exported with wow.export, named `Zone_<areaId>_<Name>_<Internal>.png`, 1002 x 668. They already use the game's zone map coordinates, so QuestieDB's 0 to 100 points land directly on them with no alignment step.
+- `python3 tools/add-zone-maps.py <zones folder> <check sheet.png> --new` converts each to `static/maps/z<areaId>.webp` (quality 80, about 140 KB), records it in `static/maps/index.json` with `src: "zone"`, and draws the real spawn points on a check sheet. `--new` skips zones already converted. When a file's name matches a dungeon or raid on the drops tabs and that instance has no dungeon map, the zone image is used for its card.
+- They were added 10 at a time, busiest zones first, and replace the minimap-tile zone images for The Lost Isles, Gilneas City, The Wandering Isle, Darkmoon Island and Alterac Valley. The tile images stay for Ragefire Chasm and Scarlet Monastery (no world map export) and for the 15 dungeon maps.
+- The spawn map has a "Show labels" checkbox (remembered) that hides the zone name label drawn on the map. Markers on map art are red with a white outline.
