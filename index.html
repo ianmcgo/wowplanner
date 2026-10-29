@@ -249,6 +249,8 @@ footer p { margin: 4px 0; }
 .tick .ico { width: 20px; height: 20px; margin: 0; }
 .tick-up { color: #7bd88f; font-weight: 700; }
 .tick-down { color: var(--danger); font-weight: 700; }
+.tick-wait { color: var(--dim); cursor: default; border-right: 0; }
+.ticker-track:has(.tick-wait) { animation: none; }
 @keyframes ticker-move { from { transform: translateX(0); } to { transform: translateX(-50%); } }
 @media (prefers-reduced-motion: reduce) {
   .ticker-track { animation: none; }
@@ -1289,7 +1291,10 @@ async function renderTicker() {
   if (seq !== state.seq || snap !== state.snap) return;
   const moves = hist && hist.h ? priceMoves(snap, hist) : [];
   if (moves.length < 3) {
-    $('ticker').hidden = true;
+    const track = $('tickerTrack');
+    $('tickerLabel').textContent = 'Price moves';
+    track.innerHTML = `<span class="tick tick-wait">${hist && hist.h ? 'Not enough price changes yet on this server. Prices are checked hourly, so moves appear as history builds up.' : 'No price history for this server yet.'}</span>`;
+    $('ticker').hidden = false;
     return;
   }
   const hrs = Math.round(Math.max(...moves.map(m => m.hours)));

@@ -285,7 +285,7 @@ These were built from documentation and forum reports, then tested against a moc
 - A bar across the top scrolls the biggest lowest-price changes on the selected server: item icon, name in its rarity color, and the change with a green up arrow or a red down arrow. It pauses while the mouse is over it, and clicking an item opens its popup. With reduced motion turned on in the system settings, it stops moving and can be scrolled by hand.
 - Change is the current lowest price against the history point closest to 24 hours ago (`{game}/{region}/{realm}/history.json.gz`). Until a server has a day of history, it uses the oldest point at least 45 minutes old, and the label says the window it covers, for example "3h moves". It switches to "24h moves" once history reaches 20 hours.
 - Only items with at least 3 listings and an earlier price of at least 1 silver count. Changes under 1% are skipped, and so are rises over 1,000% or drops over 95%: those almost always mean the only cheap listing sold or someone posted one at a silly price. The 24 biggest changes show, up and down mixed, largest first. History covers each server's 300 most listed items, so rarer items cannot appear.
-- The list repeats as often as needed to fill the screen width and scrolls at about 45 pixels a second. It hides when fewer than 3 items qualify.
+- The list repeats as often as needed to fill the screen width and scrolls at about 45 pixels a second. When fewer than 3 items qualify, the bar stays visible and says there are not enough price changes on that server yet, so it never silently disappears.
 - The page heading and subtitle were removed so the ticker and tabs sit at the top.
 
 ## Classes line in tooltips
