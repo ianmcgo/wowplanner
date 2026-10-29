@@ -4,7 +4,7 @@ import { gunzipSync } from 'node:zlib';
 import assert from 'node:assert/strict';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { startMock } from './mock-server.mjs';
+import { startMock, setPartial } from './mock-server.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const collector = path.join(here, '..', 'collect.mjs');
@@ -145,6 +145,20 @@ try {
   assert.deepEqual(games2.games.map(g => g.id), ['retail']);
   assert.ok(!existsSync(path.join(out, 'classic1x')));
   assert.ok(!existsSync(path.join(out, 'classic')));
+
+  const before = readGz(path.join(out, 'retail', 'us', '11', 'latest.json.gz'));
+  const salesBefore = readGz(path.join(out, 'retail', 'us', '11', 'sales.json.gz'));
+  setPartial(true);
+  await new Promise(r => setTimeout(r, 1100));
+  await run({ GAMES: 'retail', MAX_REALMS: '1', PARTIAL_MIN_LISTINGS: '100' });
+  setPartial(false);
+  const afterPartial = readGz(path.join(out, 'retail', 'us', '11', 'latest.json.gz'));
+  assert.equal(afterPartial.items.length, before.items.length);
+  assert.equal(afterPartial.u, before.u);
+  const salesAfter = readGz(path.join(out, 'retail', 'us', '11', 'sales.json.gz'));
+  assert.equal(salesAfter.obs.length, salesBefore.obs.length);
+  const diag = JSON.parse(readFileSync(path.join(out, 'diagnostics.json'), 'utf8'));
+  assert.equal(diag.games.retail.partialSnapshots[0].realm, 11);
 
   const bad = await exec({ BLIZZARD_CLIENT_ID: '', BLIZZARD_CLIENT_SECRET: '', OUT_DIR: out });
   assert.notEqual(bad.status, 0);

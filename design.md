@@ -138,6 +138,12 @@ The tab works out profit in the browser from the selected server's latest prices
 - Cancelled auctions look the same as sales, so this is a ranking, not exact sales.
 - The Top 10 profits cards also show "Sells about N a day" when sales data exists.
 
+## Partial snapshots
+- On 29 October 2026 Blizzard's API returned only 131 listings for the Pagle group in one run instead of about 30,000, while other servers looked normal.
+- The collector now compares each server's listing count with its previous snapshot. If a server with at least 1,000 listings (`PARTIAL_MIN_LISTINGS`) drops below 40% of that and the previous snapshot is under 6 hours old, the new data is ignored: the previous snapshot, history and sales state stay as they were, and `diagnostics.json` records it under `partialSnapshots`. A drop that lasts longer than 6 hours is accepted as real.
+- Sales tracking was reset once (`SALES_VERSION` 2) because that partial snapshot made the missing listings look sold.
+- `diagnostics.json` also records `itemLookups` (tried, found, not found, failed and sample errors) for each game.
+
 ## Collector settings (environment variables)
 
 | Variable | Default | Meaning |
@@ -250,6 +256,7 @@ These were built from documentation and forum reports, then tested against a moc
 - **Item level** min and max narrow the listings to an item level range.
 - **Sort by**: quantity, listings, lowest price, name, item level, required level, DPS (weapons) or armor value. The table has iLvl, Req and DPS / Armor columns; clicking the Item, iLvl, Req, Quantity, Listings or Lowest price headers also sorts and flips direction. Items without the chosen stat go to the end.
 - The server picker is a plain dropdown.
+- If the collector has not saved an item's stats yet, the page reads required level, DPS and armor from the item's tooltip lines instead. Item level is not in MoP Classic tooltips, so it waits for the collector.
 - Item names are colored by rarity (from the tooltip data) in every table and card.
 
 ## Outside data sources considered

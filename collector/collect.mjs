@@ -29,6 +29,10 @@ const TIME = { SHORT: 'S', MEDIUM: 'M', LONG: 'L', VERY_LONG: 'V' };
 const ICON_LOOKUPS = Number(env.ICON_LOOKUPS || 8000);
 const SALES_DAYS = Number(env.SALES_DAYS || 7);
 const SALES_MAX_GAP = 3 * 3600;
+const SALES_VERSION = 2;
+const PARTIAL_RATIO = 0.4;
+const PARTIAL_MAX_HOURS = 6;
+const PARTIAL_MIN_LISTINGS = Number(env.PARTIAL_MIN_LISTINGS || 1000);
 const SALES_MIN_GAP = Number(env.SALES_MIN_GAP ?? 1200);
 const TIME_CODE = { SHORT: 1, MEDIUM: 2, LONG: 3, VERY_LONG: 4 };
 const HOUSE_CODE = { alliance: 1, horde: 2, blackwater: 3 };
@@ -284,8 +288,21 @@ async function fetchCommodities(game, base, ns) {
 
 async function storeSnapshot(game, region, entry, auctions, seen, now) {
   const items = aggregate(auctions);
-  for (const e of items) seen.set(e.i, (seen.get(e.i) || 0) + e.n);
   const dir = path.join(OUT_DIR, game.id, region, String(entry.id));
+  const prevLatest = await readGz(path.join(dir, 'latest.json.gz'));
+  if (prevLatest && Array.isArray(prevLatest.items)) {
+    const before = prevLatest.items.reduce((s, e) => s + e.n, 0);
+    const after = items.reduce((s, e) => s + e.n, 0);
+    const ageHours = (now - Date.parse(prevLatest.u) / 1000) / 3600;
+    if (before >= PARTIAL_MIN_LISTINGS && after < before * PARTIAL_RATIO && ageHours < PARTIAL_MAX_HOURS) {
+      const d = diagnostics[game.id] || (diagnostics[game.id] = {});
+      (d.partialSnapshots || (d.partialSnapshots = [])).push({ realm: entry.id, before, after });
+      log(game.id, region, 'partial snapshot ignored for', entry.id, before, '->', after);
+      for (const e of prevLatest.items) seen.set(e.i, (seen.get(e.i) || 0) + e.n);
+      return prevLatest.items.length;
+    }
+  }
+  for (const e of items) seen.set(e.i, (seen.get(e.i) || 0) + e.n);
   await writeGz(path.join(dir, 'latest.json.gz'), {
     u: new Date(now * 1000).toISOString(),
     g: game.id,
@@ -383,7 +400,8 @@ async function updateSales(dir, auctions, now) {
   const stateFile = path.join(dir, 'state.bin.gz');
   const salesFile = path.join(dir, 'sales.json.gz');
   const rows = listingRows(auctions);
-  const prev = (await readGz(salesFile)) || { last: 0, obs: [], h: {} };
+  const stored = await readGz(salesFile);
+  const prev = stored && stored.v === SALES_VERSION ? stored : { last: 0, obs: [], h: {} };
   let prevMap = null;
   const gap = now - (prev.last || 0);
   if (prev.last && gap > 0 && gap >= SALES_MIN_GAP && gap <= SALES_MAX_GAP) {
@@ -409,7 +427,7 @@ async function updateSales(dir, auctions, now) {
   }
   await mkdir(dir, { recursive: true });
   await writeFile(stateFile, gzipSync(encodeRows(rows), { level: 6 }));
-  await writeGz(salesFile, { last: now, obs, h });
+  await writeGz(salesFile, { v: SALES_VERSION, last: now, obs, h });
 }
 
 async function loadMeta(game) {
@@ -566,9 +584,12 @@ async function resolveItemNames(game, region, base, seen, meta) {
     .sort((a, b) => b[1] - a[1])
     .slice(0, ITEM_LOOKUPS)
     .map(([id]) => id);
+  const stat = { tried: missing.length, ok: 0, notFound: 0, failed: 0, errors: [] };
   await pool(missing, CONCURRENCY, async id => {
     try {
       const item = await getJson(`${base}/data/wow/item/${id}?namespace=${ns}&locale=en_US`);
+      if (item) stat.ok++;
+      else stat.notFound++;
       if (item) {
         if (!meta.names[id] && item.name) meta.names[id] = localName(item.name);
         else if (!(id in meta.names)) meta.names[id] = null;
@@ -582,10 +603,14 @@ async function resolveItemNames(game, region, base, seen, meta) {
         meta.tips[id] = null;
       }
     } catch (err) {
+      stat.failed++;
+      if (stat.errors.length < 5) stat.errors.push(`${id}: ${String(err.message).slice(0, 160)}`);
       log('item lookup failed', id, err.message);
     }
   });
-  log(game.id, region, 'item details looked up:', missing.length);
+  const d = diagnostics[game.id] || (diagnostics[game.id] = {});
+  d.itemLookups = stat;
+  log(game.id, region, 'item details looked up:', JSON.stringify({ ...stat, errors: stat.errors.length }));
 }
 
 async function buildRecipes(game, base, ns, meta, prev) {

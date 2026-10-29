@@ -9,6 +9,11 @@ function rng(seed) {
 }
 
 let round = 0;
+let partial = false;
+
+export function setPartial(v) {
+  partial = v;
+}
 
 function makeAuctions(seed, count, mode) {
   const r = rng(seed);
@@ -60,7 +65,7 @@ export function startMock(port) {
     m = /^\/data\/wow\/connected-realm\/(\d+)\/auctions\/(\d+)$/.exec(p);
     if (m) return json({ auctions: makeAuctions(Number(m[1]) * 10 + Number(m[2]), 300, 'classic') });
     m = /^\/data\/wow\/connected-realm\/(\d+)\/auctions$/.exec(p);
-    if (m) return json({ auctions: makeAuctions(Number(m[1]), 400, 'retail') });
+    if (m) return json({ auctions: makeAuctions(Number(m[1]), partial ? 20 : 400, 'retail') });
     if (p === '/data/wow/auctions/commodities') return json({ auctions: makeAuctions(77, 800, 'commodity') });
     m = /^\/data\/wow\/item\/(\d+)$/.exec(p);
     if (m) {

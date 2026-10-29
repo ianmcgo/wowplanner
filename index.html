@@ -856,6 +856,7 @@ async function loadRealm() {
     state.info = info || {};
     state.ext = ext;
     state.tips = tips;
+    tipStatCache.clear();
     nameCache.set(state.game, names);
     iconCache.set(state.game, icons);
     state.snap = snap;
@@ -928,9 +929,29 @@ function filteredRows() {
   return out;
 }
 
+const tipStatCache = new Map();
+
+function tipStats(id) {
+  if (tipStatCache.has(id)) return tipStatCache.get(id);
+  const tip = state.tips && state.tips[id];
+  const out = { 4: 0, 5: 0, 6: 0, 7: 0 };
+  if (tip && Array.isArray(tip.l)) {
+    for (const [t] of tip.l) {
+      let m;
+      if ((m = /^Item Level (\d+)/.exec(t))) out[4] = Number(m[1]);
+      else if ((m = /^Requires Level (\d+)/.exec(t))) out[5] = Number(m[1]);
+      else if ((m = /^\(([\d.,]+) damage per second\)/.exec(t))) out[6] = Number(m[1].replace(/,/g, ''));
+      else if ((m = /^([\d,]+) Armor$/.exec(t))) out[7] = Number(m[1].replace(/,/g, ''));
+    }
+  }
+  tipStatCache.set(id, out);
+  return out;
+}
+
 function statOf(id, k) {
   const info = state.info && state.info[id];
-  return info && typeof info[k] === 'number' ? info[k] : 0;
+  if (info && typeof info[k] === 'number' && info[k]) return info[k];
+  return tipStats(id)[k] || 0;
 }
 
 function statText(id) {
