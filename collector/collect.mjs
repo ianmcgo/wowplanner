@@ -195,25 +195,46 @@ function updateHistory(prev, items, now) {
   return { h: out };
 }
 
+function auctionDiag(game) {
+  const d = diagnostics[game.id] || (diagnostics[game.id] = {});
+  if (!d.auctions) d.auctions = [];
+  return d.auctions.length < 5 ? d.auctions : null;
+}
+
+const shape = data => (data ? { keys: Object.keys(data).slice(0, 8), count: Array.isArray(data.auctions) ? data.auctions.length : null } : null);
+
 async function fetchRealmAuctions(game, base, ns, id) {
+  const diag = auctionDiag(game);
+  const entry = diag ? { realm: id } : null;
+  if (entry) diag.push(entry);
   if (game.houses) {
     const index = await getJson(`${base}/data/wow/connected-realm/${id}/auctions/index?namespace=${ns}&locale=en_US`);
+    if (entry) entry.index = index ? JSON.stringify(index).slice(0, 500) : null;
     if (index && Array.isArray(index.auctions) && index.auctions.length) {
       const out = [];
+      if (entry) entry.houses = [];
       for (const house of index.auctions) {
-        const data = await getJson(`${base}/data/wow/connected-realm/${id}/auctions/${house.id}?namespace=${ns}&locale=en_US`);
+        let data = null;
+        try {
+          data = await getJson(`${base}/data/wow/connected-realm/${id}/auctions/${house.id}?namespace=${ns}&locale=en_US`);
+        } catch (err) {
+          if (entry) entry.houses.push({ id: house.id, error: String(err.message).slice(0, 160) });
+          continue;
+        }
+        if (entry) entry.houses.push({ id: house.id, name: localName(house.name), ...shape(data) });
         if (data && Array.isArray(data.auctions)) {
-          const tag = String(house.name || '').split(' ')[0].toLowerCase();
+          const tag = localName(house.name).split(' ')[0].toLowerCase();
           for (const a of data.auctions) {
             a.house = tag;
             out.push(a);
           }
         }
       }
-      return out;
+      if (out.length) return out;
     }
   }
   const data = await getJson(`${base}/data/wow/connected-realm/${id}/auctions?namespace=${ns}&locale=en_US`);
+  if (entry) entry.plain = shape(data);
   return data ? data.auctions || [] : null;
 }
 
