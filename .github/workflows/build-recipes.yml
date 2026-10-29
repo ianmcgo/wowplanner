@@ -1,0 +1,49 @@
+name: Build recipe data
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/build-recipes.yml
+      - tools/build-recipes.mjs
+  schedule:
+    - cron: '41 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-recipes
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Build recipes from wago.tools
+        continue-on-error: true
+        run: node tools/build-recipes.mjs static/mop-classic-recipes.json static/recipes-build-log.json
+
+      - name: Commit results
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add static/mop-classic-recipes.json static/recipes-build-log.json 2>/dev/null || true
+          if git diff --cached --quiet; then
+            echo "No changes"
+            exit 0
+          fi
+          git commit -m "Update recipe data"
+          for i in 1 2 3; do
+            git pull --rebase origin main && git push origin HEAD:main && exit 0
+            sleep 5
+          done
+          exit 1
