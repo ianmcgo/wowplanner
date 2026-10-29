@@ -95,7 +95,8 @@ The tab works out profit in the browser from the selected server's latest prices
 - Every card links to the item's Wowhead page for every way to get it. Nothing is copied from Wowhead.
 - **Min listings** (default 3) hides items with very few listings, which often have unrealistic prices.
 - Profit is an estimate. Auction snapshots show what is listed, not what sells, and the lowest price may not hold if you buy many reagents.
-- Classic games depend on Blizzard providing profession endpoints for them. If they do not, the Crafted and Dungeon tabs say no data is available and the other tabs still work.
+- **Crafted is mostly unavailable.** Checked against the live API: Blizzard's recipe endpoint returns no crafted item and no reagent list for current-expansion recipes (only a name and optional-reagent slots). Only a handful of older recipes have reagents, so the tab shows a message instead of guessing costs. Getting costs would need another data source for recipe reagents.
+- **Classic and Classic Era:** the profession and journal endpoints return 404, so Classic has Gathered and Other only, plus Wowhead links.
 
 ## Collector settings (environment variables)
 
@@ -107,13 +108,13 @@ The tab works out profit in the browser from the selected server's latest prices
 | `OUT_DIR` | `data` | Where files are written |
 | `MAX_REALMS` | 0 (all) | Limit realms per region, useful for testing |
 | `CONCURRENCY` | 8 | Parallel requests |
-| `ITEM_LOOKUPS` | 400 | New item names fetched per region per run |
+| `ITEM_LOOKUPS` | 8000 | New item names fetched per region per run |
 | `HISTORY_TOP` | 300 | Items tracked in history per realm |
 | `RECIPE_TIERS` | 3 | Newest skill tiers collected per profession |
 | `RECIPE_FETCH_CAP` | 6000 | New recipes fetched per run |
 | `SOURCES_REFRESH_HOURS` | 72 | How often recipes and drops are refreshed |
 
-Item names fill in over several runs. Until an item name is known the page shows `Item #id`.
+Item names and categories fill in over the first couple of runs (up to `ITEM_LOOKUPS` items per run, most listed first). Until an item name is known the page shows `Item #id`.
 
 ## API behavior the collector relies on
 - Token: client credentials flow at `https://oauth.battle.net/token`.

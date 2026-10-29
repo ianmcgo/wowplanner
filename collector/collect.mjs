@@ -12,7 +12,7 @@ const REGIONS = (env.REGIONS || 'us').split(',').map(s => s.trim()).filter(Boole
 const GAME_IDS = (env.GAMES || 'retail,classic,classic1x').split(',').map(s => s.trim()).filter(Boolean);
 const MAX_REALMS = Number(env.MAX_REALMS || 0);
 const CONCURRENCY = Number(env.CONCURRENCY || 8);
-const ITEM_LOOKUPS = Number(env.ITEM_LOOKUPS || 400);
+const ITEM_LOOKUPS = Number(env.ITEM_LOOKUPS || 8000);
 const HISTORY_TOP = Number(env.HISTORY_TOP || 300);
 const DAY = 86400;
 const RECIPE_TIERS = Number(env.RECIPE_TIERS || 3);

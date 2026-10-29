@@ -257,9 +257,9 @@ footer p { margin: 4px 0; }
   <section id="profitPanel" hidden>
     <div class="profit-controls">
       <div class="chips" role="group" aria-label="How the item is obtained">
-        <button type="button" class="chip" data-method="craft" aria-pressed="true">Crafted</button>
-        <button type="button" class="chip" data-method="gather" aria-pressed="false">Gathered</button>
+        <button type="button" class="chip" data-method="gather" aria-pressed="true">Gathered</button>
         <button type="button" class="chip" data-method="dungeon" aria-pressed="false">Dungeon and raid drops</button>
+        <button type="button" class="chip" data-method="craft" aria-pressed="false">Crafted</button>
         <button type="button" class="chip" data-method="other" aria-pressed="false">Other (farm, quest, vendor)</button>
       </div>
       <div class="field small">
@@ -326,7 +326,7 @@ const BASE = dataBase();
 
 const state = {
   mode: 'listings',
-  method: 'craft',
+  method: 'gather',
   games: [],
   game: null,
   region: null,
@@ -756,10 +756,13 @@ async function renderProfit() {
   const meta = await ensureMeta(state.game);
   if (seq !== state.seq || state.mode !== 'profit') return;
   const minListings = Math.max(1, parseInt($('minListings').value, 10) || 1);
-  if (state.method === 'craft' && !(meta.sources && Object.keys(meta.sources.recipes || {}).length)) {
-    $('cards').innerHTML = '';
-    setStatus('No recipe data has been collected for this game yet, so crafted profits cannot be shown.');
-    return;
+  if (state.method === 'craft') {
+    const withReagents = Object.values((meta.sources && meta.sources.recipes) || {}).filter(r => r && r.r.length).length;
+    if (withReagents < 50) {
+      $('cards').innerHTML = '';
+      setStatus('Crafted profits are not available for this game. Blizzard does not publish reagent lists for most current recipes, so the cost to craft cannot be worked out.');
+      return;
+    }
   }
   if (state.method === 'dungeon' && !(meta.sources && Object.keys(meta.sources.drops || {}).length)) {
     $('cards').innerHTML = '';
