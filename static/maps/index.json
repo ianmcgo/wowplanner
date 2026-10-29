@@ -475,6 +475,69 @@
    "src": "zone",
    "name": "Swamp of Sorrows",
    "kb": 140
+  },
+  "12": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Elwynn Forest",
+   "kb": 153
+  },
+  "1": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Dun Morogh",
+   "kb": 174
+  },
+  "215": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Mulgore",
+   "kb": 125
+  },
+  "3433": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Ghostlands",
+   "kb": 141
+  },
+  "3525": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Bloodmyst Isle",
+   "kb": 131
+  },
+  "4815": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Kelpthar Forest",
+   "kb": 105
+  },
+  "5145": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Abyssal Depths",
+   "kb": 106
+  },
+  "5339": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Stranglethorn Vale",
+   "kb": 130
+  },
+  "85": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Tirisfal Glades",
+   "kb": 147
   }
  },
  "instances": {
