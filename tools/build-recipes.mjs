@@ -217,11 +217,15 @@ async function main() {
     const sub = Number(col(b, 'SubclassID') ?? 0);
     const inv = Number(col(row, 'InventoryType') ?? col(b, 'InventoryType') ?? 0);
     const allow = Number(col(row, 'AllowableClass') || -1);
-    catalog[id] = [name, q, ilvl, req, cls, sub, inv, allow];
+    const bonding = Number(col(row, 'Bonding') || 0);
+    const sell = Number(col(row, 'SellPrice') || 0);
+    catalog[id] = [name, q, ilvl, req, cls, sub, inv, allow, bonding, sell];
   }
-  step('catalog', { items: Object.keys(catalog).length, itemColumns: itemBase[0] ? Object.keys(itemBase[0]).slice(0, 20) : [], sparseSample: itemRow.get(2589) ? { OverallQualityID: col(itemRow.get(2589), 'OverallQualityID'), ItemLevel: col(itemRow.get(2589), 'ItemLevel'), InventoryType: col(itemRow.get(2589), 'InventoryType'), AllowableClass: col(itemRow.get(2589), 'AllowableClass') } : null });
+  const bondCounts = {};
+  for (const c of Object.values(catalog)) bondCounts[c[8]] = (bondCounts[c[8]] || 0) + 1;
+  step('catalog', { bonding: bondCounts, noSell: Object.values(catalog).filter(c => !c[9]).length, items: Object.keys(catalog).length, itemColumns: itemBase[0] ? Object.keys(itemBase[0]).slice(0, 20) : [], sparseSample: itemRow.get(2589) ? { OverallQualityID: col(itemRow.get(2589), 'OverallQualityID'), ItemLevel: col(itemRow.get(2589), 'ItemLevel'), InventoryType: col(itemRow.get(2589), 'InventoryType'), AllowableClass: col(itemRow.get(2589), 'AllowableClass') } : null });
   await mkdir(path.dirname(catalogFile), { recursive: true });
-  await writeFile(catalogFile, JSON.stringify({ v: 1, built: new Date().toISOString(), source: `wago.tools ${product} ${version}`, fields: ['name', 'quality', 'itemLevel', 'requiredLevel', 'classId', 'subclassId', 'inventoryType', 'allowableClassMask'], items: catalog }));
+  await writeFile(catalogFile, JSON.stringify({ v: 1, built: new Date().toISOString(), source: `wago.tools ${product} ${version}`, fields: ['name', 'quality', 'itemLevel', 'requiredLevel', 'classId', 'subclassId', 'inventoryType', 'allowableClassMask', 'bonding', 'sellPrice'], items: catalog }));
   const out = { v: 1, built: new Date().toISOString(), source: `wago.tools ${product} ${version}`, recipes, names, buy };
   await mkdir(path.dirname(outFile), { recursive: true });
   await writeFile(outFile, JSON.stringify(out));
