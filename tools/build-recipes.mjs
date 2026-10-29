@@ -1,8 +1,9 @@
-import { writeFile, mkdir } from 'node:fs/promises';
+import { writeFile, mkdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 
 const outFile = process.argv[2] || 'static/mop-classic-recipes.json';
 const logFile = process.argv[3] || 'static/recipes-build-log.json';
+const vendorListFile = process.argv[4] || 'static/vendor-items.json';
 const BASE = process.env.WAGO_BASE || 'https://wago.tools';
 const PRODUCT_HINTS = (process.env.WAGO_PRODUCTS || 'wow_classic,wow_classic_ptr,wow_classic_beta').split(',');
 const VERSION_PREFIX = process.env.WAGO_VERSION_PREFIX || '5.';
@@ -147,7 +148,12 @@ async function main() {
   step('spells with reagents', { count: mats.size });
 
   const itemName = new Map();
-  for (const it of items) itemName.set(Number(it.ID), col(it, 'Display_lang', 'Display'));
+  const itemRow = new Map();
+  for (const it of items) {
+    itemName.set(Number(it.ID), col(it, 'Display_lang', 'Display'));
+    itemRow.set(Number(it.ID), it);
+  }
+  step('price columns', { columns: items[0] ? Object.keys(items[0]).filter(c => /price|stack|vendor/i.test(c)) : [] });
   const spellName = new Map();
   for (const s of spellNames) spellName.set(Number(s.ID), col(s, 'Name_lang', 'Name'));
 
@@ -165,7 +171,26 @@ async function main() {
       if (n && !names[id]) names[id] = n;
     }
   }
-  const out = { v: 1, built: new Date().toISOString(), source: `wago.tools ${product} ${version}`, recipes, names };
+  let vendorIds = [];
+  try {
+    vendorIds = JSON.parse(await readFile(vendorListFile, 'utf8'));
+  } catch {
+    vendorIds = [];
+  }
+  const wanted = new Set(vendorIds);
+  for (const r of Object.values(recipes)) for (const [id] of r.r) wanted.add(id);
+  const buy = {};
+  for (const id of wanted) {
+    const row = itemRow.get(id);
+    if (!row) continue;
+    const price = Number(col(row, 'BuyPrice') || 0);
+    const stack = Number(col(row, 'VendorStackCount') || 1) || 1;
+    if (price > 0) buy[id] = stack > 1 ? [price, stack] : price;
+    const n = itemName.get(id);
+    if (n && !names[id]) names[id] = n;
+  }
+  step('vendor prices', { wanted: wanted.size, priced: Object.keys(buy).length });
+  const out = { v: 1, built: new Date().toISOString(), source: `wago.tools ${product} ${version}`, recipes, names, buy };
   await mkdir(path.dirname(outFile), { recursive: true });
   await writeFile(outFile, JSON.stringify(out));
   const byProf = {};
