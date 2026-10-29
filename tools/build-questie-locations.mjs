@@ -126,6 +126,7 @@ const items = await loadData(path.join(mop, 'mopItemDB.lua'), 'QuestieDB.itemDat
 const npcs = await loadData(path.join(mop, 'mopNpcDB.lua'), 'QuestieDB.npcData');
 const objects = await loadData(path.join(mop, 'mopObjectDB.lua'), 'QuestieDB.objectData');
 const zoneNames = await loadZones(path.join(dbDir, 'src', 'corrections', 'enum', 'zones.lua'));
+const dropRates = await loadData(path.join(dbDir, 'support', 'DropTables', 'mopItemDrops.lua'), 'QuestieMopItemDrops.wowheadData');
 
 const out = { v: 1, built: new Date().toISOString(), license: 'GPL-3.0, derived from QuestieDB (https://github.com/Questie/QuestieDB)', zones: {}, npcs: {}, objects: {}, items: {} };
 const usedNpcs = new Set();
@@ -133,10 +134,15 @@ const usedObjects = new Set();
 
 const pick = list => (Array.isArray(list) ? list.filter(x => typeof x === 'number') : []);
 
+let ratedItems = 0;
 for (const [id, row] of Object.entries(items)) {
   if (!Array.isArray(row)) continue;
   const vendors = pick(row[13]).filter(n => npcs[n] && npcs[n][6]);
-  const drops = pick(row[1]).filter(n => npcs[n] && npcs[n][6]);
+  const rates = dropRates[id] && typeof dropRates[id] === 'object' && !Array.isArray(dropRates[id]) ? dropRates[id] : {};
+  const rate = n => (typeof rates[n] === 'number' ? rates[n] : -1);
+  const drops = [...new Set([...pick(row[1]), ...Object.keys(rates).map(Number)])]
+    .filter(n => npcs[n] && npcs[n][6])
+    .sort((a, b) => rate(b) - rate(a));
   const objs = pick(row[2]).filter(o => objects[o] && objects[o][3]);
   if (!vendors.length && !drops.length && !objs.length) continue;
   const entry = {};
@@ -144,6 +150,11 @@ for (const [id, row] of Object.entries(items)) {
   if (drops.length) {
     entry.d = drops.slice(0, MAX_DROPS);
     if (drops.length > MAX_DROPS) entry.dn = drops.length;
+    const dc = entry.d.map(n => (rate(n) >= 0 ? Math.round(rate(n) * 100) / 100 : null));
+    if (dc.some(x => x !== null)) {
+      entry.dc = dc;
+      ratedItems++;
+    }
   }
   if (objs.length) entry.o = objs.slice(0, MAX_OBJECTS);
   out.items[id] = entry;
@@ -171,4 +182,5 @@ for (const z of usedZones) out.zones[z] = zoneNames[z] || null;
 await mkdir(path.dirname(outFile), { recursive: true });
 await writeFile(outFile, JSON.stringify(out));
 const vendorItems = Object.values(out.items).filter(e => e.v).length;
+console.log('items with drop rates', ratedItems);
 console.log('items', Object.keys(out.items).length, 'with vendors', vendorItems, 'npcs', Object.keys(out.npcs).length, 'objects', Object.keys(out.objects).length, 'zones', usedZones.size, 'named zones', Object.values(out.zones).filter(Boolean).length);

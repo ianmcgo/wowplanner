@@ -172,6 +172,7 @@ canvas { width: 100%; height: 220px; display: block; background: var(--panel-2);
 .fac.h { color: #ff7b72; border-color: #9e3b3b; }
 .zone-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
 .coords { color: var(--dim); font-size: .84rem; }
+.pct { float: right; color: #7bd88f; font-weight: 600; font-size: .88rem; margin-left: 8px; }
 .loc-h { margin: 10px 0 4px; font-size: .82rem; color: var(--dim); text-transform: uppercase; letter-spacing: .06em; font-weight: 600; }
 .mats { width: 100%; border-collapse: collapse; margin: 4px 0 6px; }
 .mats td, .mats th { padding: 5px 6px; text-align: right; white-space: nowrap; font-size: .92rem; border-bottom: 1px solid var(--line); }
@@ -587,16 +588,17 @@ async function fillLocations(id) {
     return;
   }
   const list = [];
-  const add = (ids, kind, role) => {
-    for (const n of ids || []) {
+  const add = (ids, kind, role, chances) => {
+    (ids || []).forEach((n, j) => {
       const row = kind === 'npc' ? loc.npcs[n] : loc.objects[n];
-      if (!row) continue;
-      if (kind === 'npc') list.push({ id: n, kind, role, name: row[0], sub: row[1], fac: row[2], min: row[3], max: row[4], spawns: row[5] });
+      if (!row) return;
+      const chance = chances && typeof chances[j] === 'number' ? chances[j] : null;
+      if (kind === 'npc') list.push({ id: n, kind, role, name: row[0], sub: row[1], fac: row[2], min: row[3], max: row[4], spawns: row[5], chance });
       else list.push({ id: n, kind: 'object', role, name: row[0], spawns: row[1] });
-    }
+    });
   };
   add(entry.v, 'npc', 'Sold by');
-  add(entry.d, 'npc', 'Dropped by');
+  add(entry.d, 'npc', 'Dropped by', entry.dc);
   add(entry.o, 'object', 'Found in');
   if (!list.length) {
     $('dlgLocWrap').hidden = true;
@@ -611,7 +613,8 @@ async function fillLocations(id) {
     const lvl = src.min && src.role !== 'Sold by' ? ` \u00b7 level ${src.min}${src.max && src.max !== src.min ? '-' + src.max : ''}` : '';
     const extra = src.kind === 'npc' ? `${src.sub ? ` &lt;${esc(src.sub)}&gt;` : ''}${src.role === 'Sold by' ? factionTag(src.fac) : ''}` : '';
     const pts = Object.values(src.spawns).reduce((n, p) => n + p.length, 0);
-    return `<li${hide ? ' class="more" hidden' : ''}><button type="button" data-loc="${k}" aria-pressed="${String(k === 0)}">${esc(src.name)}${extra}<div class="sub">${esc(zones)}${esc(lvl)} \u00b7 ${pts} spawn point${pts === 1 ? '' : 's'}</div></button></li>`;
+    const pct = src.chance !== null && src.chance !== undefined ? `<span class="pct">${src.chance < 1 ? src.chance.toFixed(2) : src.chance < 10 ? src.chance.toFixed(1) : Math.round(src.chance)}% drop chance</span>` : '';
+    return `<li${hide ? ' class="more" hidden' : ''}><button type="button" data-loc="${k}" aria-pressed="${String(k === 0)}">${esc(src.name)}${extra}${pct}<div class="sub">${esc(zones)}${esc(lvl)} \u00b7 ${pts} spawn point${pts === 1 ? '' : 's'}</div></button></li>`;
   };
   let html = '';
   for (const role of ['Sold by', 'Dropped by', 'Found in']) {

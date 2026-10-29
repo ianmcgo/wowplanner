@@ -217,6 +217,11 @@ These were built from documentation and forum reports, then tested against a moc
 - Zone names come from the enum constant names (for example `ELWYNN_FOREST` becomes "Elwynn Forest"). Six zones have no name and show as "Zone 1234".
 - The item popup has a "Where to find it" section: vendors with their title and faction, droppers with level range, and objects such as herb nodes or chests. Selecting one draws its spawn points on a plain zone grid (no game map art) with the coordinates listed below, plus a link to the full map on Wowhead.
 
+### Drop chances
+- Drop percentages come from QuestieDB's `support/DropTables/mopItemDrops.lua` (`wowheadData`), which the Questie team built from Wowhead's player-collected loot statistics. It is part of QuestieDB and covered by the same GPLv3 terms.
+- It only covers items tied to quest objectives: 2,301 items in the build, about 20,000 mob rates. Gear and trade goods sold on the auction house are mostly not in it, and no open source with MoP Classic drop rates for those was found.
+- For covered items the droppers are sorted by drop chance and the popup shows "N% drop chance" next to each mob. Mobs from the drop table that are not in the item's NPC list are added. The rates are stored in `dc`, in the same order as `d`, with `null` where a mob has no rate.
+
 ### Dropped by and Crafted by
 - The locations file keeps up to 8 vendors, 25 dropping creatures and 10 objects per item. When more creatures drop an item, `dn` holds the full count and the popup says "top 25 of N".
 - The popup groups sources under Sold by, Dropped by (with level range) and Found in, each with its spawn point count. The first 8 of each group show, with a "Show all" button. Selecting one draws it on the zone grid.
