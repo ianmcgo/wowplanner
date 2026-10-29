@@ -9,7 +9,7 @@ const API_BASE = env.API_BASE || null;
 const OAUTH_URL = env.OAUTH_URL || 'https://oauth.battle.net/token';
 const OUT_DIR = env.OUT_DIR || 'data';
 const REGIONS = (env.REGIONS || 'us').split(',').map(s => s.trim()).filter(Boolean);
-const GAME_IDS = (env.GAMES || 'classic,classic1x').split(',').map(s => s.trim()).filter(Boolean);
+const GAME_IDS = (env.GAMES || 'classic,classic1x,classicann').split(',').map(s => s.trim()).filter(Boolean);
 const MAX_REALMS = Number(env.MAX_REALMS || 0);
 const CONCURRENCY = Number(env.CONCURRENCY || 8);
 const ITEM_LOOKUPS = Number(env.ITEM_LOOKUPS || 8000);
@@ -36,7 +36,8 @@ const HOUSE_CODE = { alliance: 1, horde: 2, blackwater: 3 };
 const GAMES = {
   retail: { label: 'Retail', dynamic: 'dynamic-{r}', static: 'static-{r}', commodities: true, houses: false, journal: true },
   classic: { label: 'Classic (Progression)', dynamic: 'dynamic-classic-{r}', static: 'static-classic-{r}', staticFallback: ['static-classic1x-{r}'], commodities: true, houses: false, journal: false },
-  classic1x: { label: 'Classic Era', dynamic: 'dynamic-classic1x-{r}', static: 'static-classic1x-{r}', staticFallback: ['static-classic-{r}'], commodities: false, houses: true, journal: false }
+  classic1x: { label: 'Classic Era', dynamic: 'dynamic-classic1x-{r}', static: 'static-classic1x-{r}', staticFallback: ['static-classic-{r}'], commodities: false, houses: true, journal: false },
+  classicann: { label: 'Classic Anniversary', dynamic: 'dynamic-classicann-{r}', static: 'static-classicann-{r}', staticFallback: ['static-classic1x-{r}'], commodities: false, houses: true, journal: false }
 };
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -765,41 +766,6 @@ async function collectRegion(game, region, now, meta) {
   return true;
 }
 
-async function probeEraNamespaces() {
-  const base = apiBase(REGIONS[0]);
-  const r = REGIONS[0];
-  const results = [];
-  let build = null;
-  const probe = await rawProbe(`${base}/data/wow/item/2589?namespace=static-classic1x-${r}`);
-  const m = /namespace=static-([\d._]+)-classic1x/.exec(probe.body || '');
-  if (m) build = m[1];
-  const namespaces = [`dynamic-classic1x-${r}`, `dynamic-classicann-${r}`, `dynamic-classic-ann-${r}`, `dynamic-classic1x-ann-${r}`, `dynamic-classicsod-${r}`];
-  if (build) namespaces.push(`dynamic-${build}-classic1x-${r}`);
-  for (const ns of namespaces) {
-    const entry = { ns };
-    const idx = await rawProbe(`${base}/data/wow/connected-realm/index?namespace=${ns}`);
-    entry.index = idx.status;
-    const first = /connected-realm\/(\d+)/.exec(idx.body || '');
-    if (idx.status === 200) {
-      const full = await getJson(`${base}/data/wow/connected-realm/index?namespace=${ns}`).catch(() => null);
-      const ids = full && full.connected_realms ? full.connected_realms.map(c => Number((/connected-realm\/(\d+)/.exec(c.href) || [])[1])) : [];
-      entry.realmCount = ids.length;
-      entry.tries = [];
-      for (const id of ids.slice(0, 3)) {
-        const cr = await getJson(`${base}/data/wow/connected-realm/${id}?namespace=${ns}&locale=en_US`).catch(() => null);
-        const names = cr && cr.realms ? cr.realms.map(x => localName(x.name)).join('/') : '';
-        const plain = await rawProbe(`${base}/data/wow/connected-realm/${id}/auctions?namespace=${ns}`);
-        const house = await rawProbe(`${base}/data/wow/connected-realm/${id}/auctions/2?namespace=${ns}`);
-        entry.tries.push({ id, names, plain: plain.status, plainBody: (plain.body || '').slice(0, 120), house2: house.status, house2Body: (house.body || '').slice(0, 120) });
-      }
-    } else if (first) {
-      entry.note = 'index body had realm links';
-    }
-    results.push(entry);
-  }
-  diagnostics.eraProbe = { build, results };
-}
-
 async function main() {
   if (!CLIENT_ID || !CLIENT_SECRET) throw new Error('Missing BLIZZARD_CLIENT_ID or BLIZZARD_CLIENT_SECRET');
   token = await getToken();
@@ -860,14 +826,7 @@ async function main() {
   }
   const games = [...table.values()].filter(g => g.regions.size).map(g => ({ id: g.id, label: g.label, regions: [...g.regions].sort() }));
   await writeJson(path.join(OUT_DIR, 'games.json'), { u: new Date(now * 1000).toISOString(), games });
-  try {
-    await probeEraNamespaces();
-  } catch (err) {
-    diagnostics.eraProbe = { error: String(err.message) };
-  }
-  const eraProbe = diagnostics.eraProbe;
-  delete diagnostics.eraProbe;
-  await writeJson(path.join(OUT_DIR, 'diagnostics.json'), { u: new Date(now * 1000).toISOString(), games: diagnostics, eraProbe });
+  await writeJson(path.join(OUT_DIR, 'diagnostics.json'), { u: new Date(now * 1000).toISOString(), games: diagnostics });
   if (!successes) throw new Error('No game and region combination was collected');
   log('done, collected', successes, 'game and region combinations');
 }

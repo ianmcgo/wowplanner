@@ -1015,7 +1015,7 @@ function ensureMeta(game) {
   return metaCache.get(game);
 }
 
-const WOWHEAD_PATH = { retail: '', classic: 'mop-classic/', classic1x: 'classic/' };
+const WOWHEAD_PATH = { retail: '', classic: 'mop-classic/', classic1x: 'classic/', classicann: 'classic/' };
 
 function wowheadUrl(id) {
   return `https://www.wowhead.com/${WOWHEAD_PATH[state.game] ?? 'classic/'}item=${id}`;
