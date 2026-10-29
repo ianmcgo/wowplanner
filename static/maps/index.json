@@ -1,11 +1,11 @@
 {
  "zones": {
   "4720": {
-   "w": 1000,
-   "h": 667,
-   "ui": 174,
-   "hit": 1.0,
-   "kb": 36
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "The Lost Isles",
+   "kb": 135
   },
   "4755": {
    "w": 1000,
@@ -15,11 +15,11 @@
    "kb": 25
   },
   "5736": {
-   "w": 1000,
-   "h": 666,
-   "ui": 378,
-   "hit": 1.0,
-   "kb": 62
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "The Wandering Isle",
+   "kb": 127
   },
   "5861": {
    "w": 1000,
@@ -538,6 +538,62 @@
    "src": "zone",
    "name": "Tirisfal Glades",
    "kb": 147
+  },
+  "130": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Silverpine Forest",
+   "kb": 128
+  },
+  "2817": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Crystalsong Forest",
+   "kb": 175
+  },
+  "3430": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Eversong Woods",
+   "kb": 161
+  },
+  "3524": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Azuremyst Isle",
+   "kb": 145
+  },
+  "38": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Loch Modan",
+   "kb": 129
+  },
+  "4197": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Wintergrasp",
+   "kb": 163
+  },
+  "41": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Deadwind Pass",
+   "kb": 123
+  },
+  "5389": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Tol Barad Peninsula",
+   "kb": 133
   }
  },
  "instances": {
