@@ -265,6 +265,76 @@
    "src": "zone",
    "name": "The Storm Peaks",
    "kb": 172
+  },
+  "1377": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Silithus",
+   "kb": 150
+  },
+  "148": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Darkshore",
+   "kb": 128
+  },
+  "17": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Northern Barrens",
+   "kb": 138
+  },
+  "3520": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Shadowmoon Valley",
+   "kb": 134
+  },
+  "357": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Feralas",
+   "kb": 135
+  },
+  "361": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Felwood",
+   "kb": 118
+  },
+  "4922": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Twilight Highlands",
+   "kb": 142
+  },
+  "5042": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Deepholm",
+   "kb": 123
+  },
+  "5842": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Townlong Steppes",
+   "kb": 121
+  },
+  "6134": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Krasarang Wilds",
+   "kb": 118
   }
  },
  "instances": {
