@@ -335,6 +335,76 @@
    "src": "zone",
    "name": "Krasarang Wilds",
    "kb": 118
+  },
+  "10": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Duskwood",
+   "kb": 132
+  },
+  "11": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Wetlands",
+   "kb": 144
+  },
+  "267": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Hillsbrad Foothills",
+   "kb": 147
+  },
+  "28": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Western Plaguelands",
+   "kb": 139
+  },
+  "3": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Badlands",
+   "kb": 136
+  },
+  "40": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Westfall",
+   "kb": 135
+  },
+  "4298": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Plaguelands The Scarlet Enclave",
+   "kb": 134
+  },
+  "4709": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Southern Barrens",
+   "kb": 136
+  },
+  "47": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "The Hinterlands",
+   "kb": 147
+  },
+  "6138": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Dread Wastes",
+   "kb": 120
   }
  },
  "instances": {
