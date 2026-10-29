@@ -203,10 +203,27 @@ function auctionDiag(game) {
 
 const shape = data => (data ? { keys: Object.keys(data).slice(0, 8), count: Array.isArray(data.auctions) ? data.auctions.length : null } : null);
 
+async function rawProbe(url) {
+  try {
+    const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+    const text = await res.text();
+    return { status: res.status, body: text.slice(0, 240) };
+  } catch (err) {
+    return { error: String(err.message).slice(0, 160) };
+  }
+}
+
 async function fetchRealmAuctions(game, base, ns, id) {
   const diag = auctionDiag(game);
   const entry = diag ? { realm: id } : null;
   if (entry) diag.push(entry);
+  if (entry && diag.length <= 2) {
+    entry.raw = {
+      houseWithLocale: await rawProbe(`${base}/data/wow/connected-realm/${id}/auctions/2?namespace=${ns}&locale=en_US`),
+      houseNoLocale: await rawProbe(`${base}/data/wow/connected-realm/${id}/auctions/2?namespace=${ns}`),
+      plain: await rawProbe(`${base}/data/wow/connected-realm/${id}/auctions?namespace=${ns}`)
+    };
+  }
   if (game.houses) {
     const index = await getJson(`${base}/data/wow/connected-realm/${id}/auctions/index?namespace=${ns}&locale=en_US`);
     if (entry) entry.index = index ? JSON.stringify(index).slice(0, 500) : null;
@@ -407,7 +424,9 @@ async function probeStatic(game, region, base, meta) {
     }
   }
   meta.staticNs = chosen || candidates[0];
-  diagnostics[game.id] = { staticNs: meta.staticNs, probes };
+  const d = diagnostics[game.id] || (diagnostics[game.id] = {});
+  d.staticNs = meta.staticNs;
+  d.probes = probes;
   log(game.id, 'item namespace:', meta.staticNs);
 }
 
