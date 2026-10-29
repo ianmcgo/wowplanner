@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile, rm } from 'node:fs/promises';
 import { gzipSync, gunzipSync } from 'node:zlib';
 import path from 'node:path';
 
@@ -8,13 +8,14 @@ const CLIENT_SECRET = env.BLIZZARD_CLIENT_SECRET;
 const API_BASE = env.API_BASE || null;
 const OAUTH_URL = env.OAUTH_URL || 'https://oauth.battle.net/token';
 const OUT_DIR = env.OUT_DIR || 'data';
-const REGIONS = (env.REGIONS || 'us,eu').split(',').map(s => s.trim()).filter(Boolean);
+const REGIONS = (env.REGIONS || 'us').split(',').map(s => s.trim()).filter(Boolean);
 const GAME_IDS = (env.GAMES || 'retail,classic,classic1x').split(',').map(s => s.trim()).filter(Boolean);
 const MAX_REALMS = Number(env.MAX_REALMS || 0);
 const CONCURRENCY = Number(env.CONCURRENCY || 8);
 const ITEM_LOOKUPS = Number(env.ITEM_LOOKUPS || 400);
 const HISTORY_TOP = Number(env.HISTORY_TOP || 300);
 const DAY = 86400;
+const KNOWN_REGIONS = ['us', 'eu', 'kr', 'tw'];
 const TIME = { SHORT: 'S', MEDIUM: 'M', LONG: 'L', VERY_LONG: 'V' };
 
 const GAMES = {
@@ -330,7 +331,15 @@ async function main() {
     }
   }
 
-  const games = [...table.values()].map(g => ({ id: g.id, label: g.label, regions: [...g.regions].sort() }));
+  for (const g of table.values()) {
+    for (const region of KNOWN_REGIONS) {
+      if (!REGIONS.includes(region)) {
+        g.regions.delete(region);
+        await rm(path.join(OUT_DIR, g.id, region), { recursive: true, force: true });
+      }
+    }
+  }
+  const games = [...table.values()].filter(g => g.regions.size).map(g => ({ id: g.id, label: g.label, regions: [...g.regions].sort() }));
   await writeJson(path.join(OUT_DIR, 'games.json'), { u: new Date(now * 1000).toISOString(), games });
   if (!successes) throw new Error('No game and region combination was collected');
   log('done, collected', successes, 'game and region combinations');

@@ -78,7 +78,7 @@ Prices are in copper. 10000 copper is 1 gold.
 |---|---|---|
 | `BLIZZARD_CLIENT_ID`, `BLIZZARD_CLIENT_SECRET` | none | Required |
 | `GAMES` | `retail,classic,classic1x` | Which games to collect |
-| `REGIONS` | `us,eu` | Which regions to collect (`kr` and `tw` also work) |
+| `REGIONS` | `us` | Which regions to collect (`eu`, `kr` and `tw` also work). Regions not listed are removed from the data. |
 | `OUT_DIR` | `data` | Where files are written |
 | `MAX_REALMS` | 0 (all) | Limit realms per region, useful for testing |
 | `CONCURRENCY` | 8 | Parallel requests |
