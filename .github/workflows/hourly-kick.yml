@@ -1,0 +1,46 @@
+name: Hourly collection backup
+
+on:
+  workflow_run:
+    workflows: [Collect auction data]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  actions: write
+  contents: read
+
+concurrency:
+  group: collect-kick
+  cancel-in-progress: true
+
+jobs:
+  kick:
+    runs-on: ubuntu-latest
+    timeout-minutes: 70
+    steps:
+      - name: Wait until the next hourly slot
+        run: |
+          now=$(date -u +%s)
+          min=$(date -u +%-M)
+          sec=$(date -u +%-S)
+          wait=$(( ((77 - min) % 60) * 60 - sec ))
+          if [ "$wait" -lt 120 ]; then wait=$((wait + 3600)); fi
+          echo "Waiting $wait seconds"
+          sleep "$wait"
+
+      - name: Skip if the schedule already ran recently
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          last=$(gh api "repos/${{ github.repository }}/actions/workflows/collect.yml/runs?per_page=1" --jq '.workflow_runs[0].created_at')
+          age=$(( $(date -u +%s) - $(date -u -d "$last" +%s) ))
+          echo "Last collection started $age seconds ago"
+          if [ "$age" -lt 1800 ]; then echo "skip=1" >> "$GITHUB_OUTPUT"; fi
+
+      - name: Start a collection run
+        if: steps.check.outputs.skip != '1'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run collect.yml --repo "${{ github.repository }}" --ref main
