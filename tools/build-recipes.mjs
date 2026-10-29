@@ -10,7 +10,7 @@ const currencyFile = process.argv[7] || 'static/currency-items.json';
 const JUNK = /deprecated|^old|\(old\)|^test|\btest\b|^zz|\[ph\]|^ph |^monster -|unused|^qa /i;
 const BASE = process.env.WAGO_BASE || 'https://wago.tools';
 const PRODUCT_HINTS = (process.env.WAGO_PRODUCTS || 'wow_classic,wow_classic_ptr,wow_classic_beta').split(',');
-const VERSION_PREFIX = process.env.WAGO_VERSION_PREFIX || '5.';
+const VERSION_PREFIX = process.env.WAGO_VERSION_PREFIX ?? '5.';
 const log = { started: new Date().toISOString(), steps: [] };
 const step = (name, info) => {
   log.steps.push({ name, ...info });

@@ -36,7 +36,7 @@ async function run(extra = {}) {
     OAUTH_URL: `http://localhost:${port}/token`,
     OUT_DIR: out,
     REGIONS: 'us',
-    GAMES: 'retail,classic,classic1x',
+    GAMES: 'retail,classic,classic1x,forever',
     CONCURRENCY: '4',
     SALES_MIN_GAP: '0',
     CATALOG_FILE: catalogFile,
@@ -54,7 +54,10 @@ const readGz = f => JSON.parse(gunzipSync(readFileSync(f)).toString());
 try {
   await run();
   const games =JSON.parse(readFileSync(path.join(out, 'games.json'), 'utf8'));
-  assert.deepEqual(games.games.map(g => g.id).sort(), ['classic', 'classic1x', 'retail']);
+  assert.deepEqual(games.games.map(g => g.id).sort(), ['classic', 'classic1x', 'forever', 'retail']);
+  const fdiag = JSON.parse(readFileSync(path.join(out, 'diagnostics.json'), 'utf8'));
+  assert.equal(fdiag.games.forever.dynamicNs, 'dynamic-classicplus-us', 'forever found its namespace');
+  assert.equal(fdiag.games.forever.dynamicProbes.filter(p => !p.realms).length, 2);
   assert.deepEqual(games.games.find(g => g.id === 'retail').regions, ['us']);
 
   const realms = JSON.parse(readFileSync(path.join(out, 'retail', 'us', 'realms.json'), 'utf8'));

@@ -3,7 +3,7 @@ import { writeFile } from 'node:fs/promises';
 const outFile = process.argv[2] || 'static/map-bounds.json';
 const BASE = process.env.WAGO_BASE || 'https://wago.tools';
 const PRODUCT_HINTS = (process.env.WAGO_PRODUCTS || 'wow_classic,wow_classic_ptr,wow_classic_beta').split(',');
-const VERSION_PREFIX = process.env.WAGO_VERSION_PREFIX || '5.';
+const VERSION_PREFIX = process.env.WAGO_VERSION_PREFIX ?? '5.';
 
 const wait = ms => new Promise(r => setTimeout(r, ms));
 

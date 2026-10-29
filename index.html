@@ -859,14 +859,24 @@ function factionTag(f) {
   return '<span class="fac">Hostile</span>';
 }
 
-let mapIndexPromise = null;
+const MAP_DIRS = { classic: 'static/maps/' };
+const mapIndexCache = new Map();
 let mapIndex = { zones: {}, instances: {} };
+let mapDir = '';
 function ensureMapIndex() {
-  if (!mapIndexPromise) mapIndexPromise = fetchStatic('static/maps/index.json').then(d => {
-    if (d) mapIndex = { zones: d.zones || {}, instances: d.instances || {} };
-    return mapIndex;
+  const game = state.game;
+  if (!mapIndexCache.has(game)) {
+    mapIndexCache.set(game, MAP_DIRS[game]
+      ? fetchStatic(MAP_DIRS[game] + 'index.json').then(d => ({ zones: (d && d.zones) || {}, instances: (d && d.instances) || {} })).catch(() => ({ zones: {}, instances: {} }))
+      : Promise.resolve({ zones: {}, instances: {} }));
+  }
+  return mapIndexCache.get(game).then(idx => {
+    if (state.game === game) {
+      mapIndex = idx;
+      mapDir = MAP_DIRS[game] || '';
+    }
+    return idx;
   });
-  return mapIndexPromise;
 }
 
 function mapSvg(zone, pts, area) {
@@ -875,7 +885,7 @@ function mapSvg(zone, pts, area) {
     const h = +(100 * art.h / art.w).toFixed(2);
     const marks = pts.map(([x, y]) => `<circle class="mk" cx="${x}" cy="${(y * h / 100).toFixed(2)}" r="1.2"/>`).join('');
     const label = esc(zone);
-    return `<svg class="zmap art" viewBox="0 0 100 ${h}" role="img" aria-label="${label}: ${pts.length} location${pts.length === 1 ? '' : 's'}"><image href="static/maps/z${esc(String(area))}.webp" x="0" y="0" width="100" height="${h}" preserveAspectRatio="none"/>${marks}<rect class="zbg" x="1" y="1" width="${(label.length * 1.6 + 3).toFixed(1)}" height="4.6" rx="1"/><text class="zl" x="2.4" y="4.4">${label}</text></svg>`;
+    return `<svg class="zmap art" viewBox="0 0 100 ${h}" role="img" aria-label="${label}: ${pts.length} location${pts.length === 1 ? '' : 's'}"><image href="${mapDir}z${esc(String(area))}.webp" x="0" y="0" width="100" height="${h}" preserveAspectRatio="none"/>${marks}<rect class="zbg" x="1" y="1" width="${(label.length * 1.6 + 3).toFixed(1)}" height="4.6" rx="1"/><text class="zl" x="2.4" y="4.4">${label}</text></svg>`;
   }
   let grid = '';
   for (let k = 10; k < 100; k += 10) grid += `<line class="gl" x1="${k}" y1="0" x2="${k}" y2="66.7"/>`;
@@ -987,7 +997,7 @@ async function fillLocations(id) {
 }
 const extCache = new Map();
 
-const RECIPE_FILES = { classic: 'static/mop-classic-recipes.json' };
+const RECIPE_FILES = { classic: 'static/mop-classic-recipes.json', forever: 'static/forever-recipes.json' };
 
 function fetchBuilt(file) {
   if (!file) return Promise.resolve(null);
@@ -1013,10 +1023,14 @@ function mergeRecipes(ext, wago) {
 }
 
 function ensureExt(game) {
-  if (!EXT_FILES[game]) return Promise.resolve(null);
+  if (!EXT_FILES[game] && !RECIPE_FILES[game]) return Promise.resolve(null);
   if (!extCache.has(game)) {
     extCache.set(game, Promise.all([fetchStatic(EXT_FILES[game]), fetchBuilt(RECIPE_FILES[game])])
-      .then(([ext, wago]) => (ext ? mergeRecipes(ext, wago) : null)));
+      .then(([ext, wago]) => {
+        if (ext) return mergeRecipes(ext, wago);
+        if (wago && wago.recipes) return mergeRecipes({ src: [], items: {}, boss: {}, craft: {}, recipes: {}, names: {} }, wago);
+        return null;
+      }));
   }
   return extCache.get(game);
 }
@@ -1116,7 +1130,7 @@ function qs(id) {
   return q && QUALITY_COLOR[q] ? ` style="color:${QUALITY_COLOR[q]}"` : '';
 }
 
-const CATALOG_FILES = { classic: 'static/mop-classic-items.json' };
+const CATALOG_FILES = { classic: 'static/mop-classic-items.json', forever: 'static/forever-items.json' };
 const catalogCache = new Map();
 const INV_NAMES = { 0: 'NON_EQUIP', 18: 'BAG', 24: 'AMMO', 27: 'QUIVER' };
 
@@ -1832,7 +1846,7 @@ function ensureMeta(game) {
   return metaCache.get(game);
 }
 
-const WOWHEAD_PATH = { retail: '', classic: 'mop-classic/', classic1x: 'classic/', classicann: 'classic/' };
+const WOWHEAD_PATH = { retail: '', classic: 'mop-classic/', classic1x: 'classic/', classicann: 'classic/', forever: 'forever/' };
 
 function wowheadUrl(id) {
   return `https://www.wowhead.com/${WOWHEAD_PATH[state.game] ?? 'classic/'}item=${id}`;
@@ -2112,6 +2126,17 @@ function craftTable(rows, startRank) {
   return `<div class="table-wrap"><table class="craft-table"><thead><tr><th>#</th><th>Item and materials</th><th class="hide-sm">Skill</th><th>Sells for</th><th>Materials cost</th><th>Profit</th><th class="hide-sm">Listings</th></tr></thead><tbody>${rows.map((r, k) => craftRowHtml(r, startRank + k)).join('')}</tbody></table></div>`;
 }
 
+function gameLabel() {
+  const g = (state.games || []).find(x => x.id === state.game);
+  return g ? g.label : state.game;
+}
+
+function noData(listId, what) {
+  const msg = `There is no ${what} data for ${gameLabel()} yet. It will show here once a data source for this game is added.`;
+  $(listId).innerHTML = `<div class="empty-note">${esc(msg)}</div>`;
+  setStatus(`No ${what} data for ${gameLabel()} yet.`);
+}
+
 async function renderCraft() {
   if (!state.snap) return;
   const seq = state.seq;
@@ -2121,6 +2146,11 @@ async function renderCraft() {
   const minListings = Math.max(1, parseInt($('craftMinListings').value, 10) || 1);
   const profs = craftProfits(meta, combinedItems(commodities), minListings);
   const realm = state.snap.realms.join(' / ');
+  if (!profs.length && !(meta.ext && Object.keys(meta.ext.recipes || {}).length)) {
+    $('craftChips').innerHTML = '';
+    noData('craftList', 'crafting');
+    return;
+  }
   if (!profs.length) {
     $('craftChips').innerHTML = '';
     $('craftList').innerHTML = '<div class="empty-note">No craftable items are listed on this server with that many listings.</div>';
@@ -2159,7 +2189,7 @@ async function renderHarvest() {
   const seq = state.seq;
   const game = state.game;
   if (!HARVEST_FILES[game]) {
-    $('harvestList').innerHTML = '<div class="empty-note">There is no gathering data for this game.</div>';
+    noData('harvestList', 'gathering');
     return;
   }
   const [meta, commodities, harvest, catalog] = await Promise.all([ensureMeta(game), loadCommodities(), fetchStatic(HARVEST_FILES[game]), ensureCatalog(game)]);
@@ -2286,7 +2316,7 @@ function panZoom(box) {
 function instMap(name) {
   const m = mapIndex.instances[name];
   if (!m) return '';
-  return `<details class="imap"><summary>Map of ${esc(name)}</summary>${pzWrap(`<img loading="lazy" draggable="false" src="static/maps/${esc(m.img)}.webp" width="${m.w}" height="${m.h}" alt="Overhead map of ${esc(name)}">`)}</details>`;
+  return `<details class="imap"><summary>Map of ${esc(name)}</summary>${pzWrap(`<img loading="lazy" draggable="false" src="${mapDir}${esc(m.img)}.webp" width="${m.w}" height="${m.h}" alt="Overhead map of ${esc(name)}">`)}</details>`;
 }
 
 async function renderDrops() {
@@ -2296,7 +2326,7 @@ async function renderDrops() {
   const type = state.mode === 'raid' ? 'raid' : 'dungeon';
   const label = type === 'raid' ? 'raid' : 'dungeon';
   if (!INSTANCE_FILES[game]) {
-    $('dropsList').innerHTML = '<div class="empty-note">There is no instance data for this game.</div>';
+    noData('dropsList', 'instance');
     return;
   }
   const [commodities, data] = await Promise.all([loadCommodities(), fetchStatic(INSTANCE_FILES[game]), ensureMapIndex()]);
@@ -2343,7 +2373,7 @@ async function renderPvp() {
   const seq = state.seq;
   const game = state.game;
   if (!CURRENCY_FILES[game]) {
-    $('pvpList').innerHTML = '<div class="empty-note">There is no vendor cost data for this game.</div>';
+    noData('pvpList', 'vendor cost');
     return;
   }
   const [commodities, data, catalog] = await Promise.all([loadCommodities(), fetchBuilt(CURRENCY_FILES[game]), ensureCatalog(game)]);

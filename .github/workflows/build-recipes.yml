@@ -11,6 +11,19 @@ on:
   schedule:
     - cron: '41 6 * * 1'
   workflow_dispatch:
+    inputs:
+      game:
+        description: Which game to build (classic or forever)
+        required: false
+        default: classic
+      products:
+        description: wago.tools products to look in, comma separated (blank uses the game's default)
+        required: false
+        default: ''
+      version_prefix:
+        description: Build version prefix, such as 5. or 1.15 (blank uses the game's default)
+        required: false
+        default: ''
 
 permissions:
   contents: write
@@ -37,8 +50,25 @@ jobs:
           git clone --quiet --depth=1 --branch data "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" data-out || mkdir -p data-out
           mkdir -p data-out/static
 
+      - name: Pick game settings
+        id: cfg
+        run: |
+          GAME="${{ github.event.inputs.game || 'classic' }}"
+          if [ "$GAME" = "forever" ]; then
+            echo "products=${{ github.event.inputs.products || 'wow_classic_forever,wow_forever,wow_classic_plus,wow_classic_forever_beta,wow_classic_forever_ptr' }}" >> "$GITHUB_OUTPUT"
+            echo "prefix=${{ github.event.inputs.version_prefix }}" >> "$GITHUB_OUTPUT"
+            echo "files=data-out/static/forever-recipes.json data-out/static/forever-recipes-build-log.json static/forever-vendor-items.json data-out/static/forever-items.json static/forever-vendor-extended-costs.json data-out/static/forever-currency-items.json" >> "$GITHUB_OUTPUT"
+          else
+            echo "products=${{ github.event.inputs.products || 'wow_classic,wow_classic_ptr,wow_classic_beta' }}" >> "$GITHUB_OUTPUT"
+            echo "prefix=${{ github.event.inputs.version_prefix || '5.' }}" >> "$GITHUB_OUTPUT"
+            echo "files=data-out/static/mop-classic-recipes.json data-out/static/recipes-build-log.json static/vendor-items.json data-out/static/mop-classic-items.json static/vendor-extended-costs.json data-out/static/currency-items.json" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Build recipes from wago.tools
-        run: node tools/build-recipes.mjs data-out/static/mop-classic-recipes.json data-out/static/recipes-build-log.json static/vendor-items.json data-out/static/mop-classic-items.json static/vendor-extended-costs.json data-out/static/currency-items.json
+        env:
+          WAGO_PRODUCTS: ${{ steps.cfg.outputs.products }}
+          WAGO_VERSION_PREFIX: ${{ steps.cfg.outputs.prefix }}
+        run: node tools/build-recipes.mjs ${{ steps.cfg.outputs.files }}
 
       - name: Publish data branch
         env:

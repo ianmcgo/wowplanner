@@ -9,7 +9,7 @@ const API_BASE = env.API_BASE || null;
 const OAUTH_URL = env.OAUTH_URL || 'https://oauth.battle.net/token';
 const OUT_DIR = env.OUT_DIR || 'data';
 const REGIONS = (env.REGIONS || 'us').split(',').map(s => s.trim()).filter(Boolean);
-const GAME_IDS = (env.GAMES || 'classic,classic1x,classicann').split(',').map(s => s.trim()).filter(Boolean);
+const GAME_IDS = (env.GAMES || 'classic,classic1x,classicann,forever').split(',').map(s => s.trim()).filter(Boolean);
 const MAX_REALMS = Number(env.MAX_REALMS || 0);
 const CONCURRENCY = Number(env.CONCURRENCY || 8);
 const ITEM_LOOKUPS = Number(env.ITEM_LOOKUPS || 16000);
@@ -43,7 +43,17 @@ const GAMES = {
   retail: { label: 'Retail', dynamic: 'dynamic-{r}', static: 'static-{r}', commodities: true, houses: false, journal: true },
   classic: { label: 'Classic (Progression)', dynamic: 'dynamic-classic-{r}', static: 'static-classic-{r}', staticFallback: ['static-classic1x-{r}'], commodities: true, houses: false, journal: false, catalog: true },
   classic1x: { label: 'Classic Era', dynamic: 'dynamic-classic1x-{r}', static: 'static-classic1x-{r}', staticFallback: ['static-classic-{r}'], commodities: false, houses: true, journal: false },
-  classicann: { label: 'Classic Anniversary', dynamic: 'dynamic-classicann-{r}', static: 'static-classicann-{r}', staticFallback: ['static-classic1x-{r}'], commodities: false, houses: true, journal: false }
+  classicann: { label: 'Classic Anniversary', dynamic: 'dynamic-classicann-{r}', static: 'static-classicann-{r}', staticFallback: ['static-classic1x-{r}'], commodities: false, houses: true, journal: false },
+  forever: {
+    label: 'Forever',
+    dynamic: env.FOREVER_DYNAMIC || 'dynamic-forever-{r}',
+    dynamicFallback: ['dynamic-classicforever-{r}', 'dynamic-classicplus-{r}', 'dynamic-classic2x-{r}', 'dynamic-wowforever-{r}'],
+    static: env.FOREVER_STATIC || 'static-forever-{r}',
+    staticFallback: ['static-classicforever-{r}', 'static-classicplus-{r}', 'static-classic2x-{r}', 'static-wowforever-{r}', 'static-classic1x-{r}'],
+    commodities: true,
+    houses: true,
+    journal: false
+  }
 };
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -759,10 +769,39 @@ async function addBackfill(game, seen, meta) {
   log(game.id, 'backfill items added:', missing.length, 'catalog items still without tooltip:', left);
 }
 
+async function findDynamic(game, region, base) {
+  const candidates = [game.dynamic, ...(game.dynamicFallback || [])].map(s => s.replace('{r}', region));
+  const tried = [];
+  for (const ns of candidates) {
+    let index = null;
+    try {
+      index = await getJson(`${base}/data/wow/connected-realm/index?namespace=${ns}&locale=en_US`);
+    } catch (err) {
+      tried.push({ ns, error: String(err.message).slice(0, 160) });
+      continue;
+    }
+    const n = index && Array.isArray(index.connected_realms) ? index.connected_realms.length : 0;
+    tried.push({ ns, realms: n });
+    if (n) {
+      if (candidates.length > 1) {
+        const d = diagnostics[game.id] || (diagnostics[game.id] = {});
+        d.dynamicNs = ns;
+        d.dynamicProbes = tried;
+        log(game.id, region, 'auction namespace:', ns);
+      }
+      return { ns, index };
+    }
+  }
+  if (candidates.length > 1) {
+    const d = diagnostics[game.id] || (diagnostics[game.id] = {});
+    d.dynamicProbes = tried;
+  }
+  return { ns: candidates[0], index: null };
+}
+
 async function collectRegion(game, region, now, meta) {
   const base = apiBase(region);
-  const ns = game.dynamic.replace('{r}', region);
-  const index = await getJson(`${base}/data/wow/connected-realm/index?namespace=${ns}&locale=en_US`);
+  const { ns, index } = await findDynamic(game, region, base);
   if (!index || !Array.isArray(index.connected_realms)) {
     log(game.id, region, 'no connected realm index, skipping');
     return false;

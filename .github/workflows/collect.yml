@@ -11,9 +11,9 @@ on:
   workflow_dispatch:
     inputs:
       games:
-        description: Comma separated games (classic,classic1x,classicann,retail)
+        description: Comma separated games (classic,classic1x,classicann,forever,retail)
         required: false
-        default: classic,classic1x,classicann
+        default: classic,classic1x,classicann,forever
       regions:
         description: Comma separated regions (us,eu,kr,tw)
         required: false
@@ -49,7 +49,7 @@ jobs:
           BLIZZARD_CLIENT_SECRET: ${{ secrets.BLIZZARD_CLIENT_SECRET }}
           OUT_DIR: data-out
           CATALOG_FILE: data-out/static/mop-classic-items.json
-          GAMES: ${{ github.event.inputs.games || 'classic,classic1x,classicann' }}
+          GAMES: ${{ github.event.inputs.games || 'classic,classic1x,classicann,forever' }}
           REGIONS: ${{ github.event.inputs.regions || 'us' }}
         run: node collector/collect.mjs
 

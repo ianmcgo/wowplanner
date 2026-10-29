@@ -48,6 +48,7 @@ export function startMock(port) {
     if (req.headers.authorization !== 'Bearer test-token') return json({ error: 'unauthorized' }, 401);
     const classic = ns.includes('classic');
     if (p === '/data/wow/connected-realm/index') {
+      if (/forever|classic2x/.test(ns)) return json({}, 404);
       return json({
         connected_realms: [11, 12, 13].map(id => ({ href: `http://localhost:${port}/data/wow/connected-realm/${id}?namespace=${ns}` }))
       });
