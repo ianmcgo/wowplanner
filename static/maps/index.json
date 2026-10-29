@@ -405,6 +405,76 @@
    "src": "zone",
    "name": "Dread Wastes",
    "kb": 120
+  },
+  "141": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Teldrassil",
+   "kb": 143
+  },
+  "16": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Azshara",
+   "kb": 147
+  },
+  "400": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Thousand Needles",
+   "kb": 156
+  },
+  "44": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Redridge Mountains",
+   "kb": 140
+  },
+  "45": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Arathi Highlands",
+   "kb": 138
+  },
+  "46": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Burning Steppes",
+   "kb": 128
+  },
+  "5144": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Shimmering Expanse",
+   "kb": 106
+  },
+  "51": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Searing Gorge",
+   "kb": 127
+  },
+  "5287": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "The Cape of Stranglethorn",
+   "kb": 142
+  },
+  "8": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Swamp of Sorrows",
+   "kb": 140
   }
  },
  "instances": {
