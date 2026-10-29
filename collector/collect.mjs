@@ -21,6 +21,7 @@ const SOURCES_REFRESH_HOURS = Number(env.SOURCES_REFRESH_HOURS || 72);
 const SOURCES_VERSION = 2;
 const CATS_VERSION = 2;
 const diagnostics = {};
+const commodityHref = new Map();
 const KNOWN_REGIONS = ['us', 'eu', 'kr', 'tw'];
 const TIME = { SHORT: 'S', MEDIUM: 'M', LONG: 'L', VERY_LONG: 'V' };
 const ICON_LOOKUPS = Number(env.ICON_LOOKUPS || 8000);
@@ -252,11 +253,25 @@ async function fetchRealmAuctions(game, base, ns, id) {
   }
   const data = await getJson(`${base}/data/wow/connected-realm/${id}/auctions?namespace=${ns}&locale=en_US`);
   if (entry) entry.plain = shape(data);
-  return data ? data.auctions || [] : null;
+  if (!data) return null;
+  const list = data.auctions || [];
+  const href = data.commodities && data.commodities.href;
+  if (entry) entry.commoditiesHref = href || null;
+  if (href && /connected-realm\/\d+/.test(href)) {
+    const cd = await getJson(href);
+    if (entry) entry.realmCommodities = shape(cd);
+    if (cd && Array.isArray(cd.auctions)) for (const a of cd.auctions) list.push(a);
+  } else if (href) {
+    commodityHref.set(game.id, href);
+  }
+  return list;
 }
 
-async function fetchCommodities(base, ns) {
-  const data = await getJson(`${base}/data/wow/auctions/commodities?namespace=${ns}&locale=en_US`);
+async function fetchCommodities(game, base, ns) {
+  const href = commodityHref.get(game.id);
+  const data = await getJson(href || `${base}/data/wow/auctions/commodities?namespace=${ns}&locale=en_US`);
+  const d = diagnostics[game.id] || (diagnostics[game.id] = {});
+  d.commodities = { href: href || null, ...shape(data) };
   return data ? data.auctions || [] : null;
 }
 
@@ -654,8 +669,8 @@ async function collectRegion(game, region, now, meta) {
 
   if (game.commodities) {
     try {
-      const auctions = await fetchCommodities(base, ns);
-      if (auctions) {
+      const auctions = await fetchCommodities(game, base, ns);
+      if (auctions && auctions.length) {
         const entry = { id: 'commodities', names: ['Commodities (region-wide)'] };
         await storeSnapshot(game, region, entry, auctions, seen, now);
         realms.unshift(entry);
