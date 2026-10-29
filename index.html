@@ -240,6 +240,18 @@ thead th.plain { padding: 10px 12px; }
 .zmap .zbg { fill: rgba(11, 13, 18, .7); }
 .zmap.art .mk { fill: #ff3b30; stroke: #fff; stroke-width: .3; }
 .zwrap.nolabels .zl, .zwrap.nolabels .zbg { display: none; }
+.pz { position: relative; overflow: hidden; border-radius: 8px; touch-action: pan-y; user-select: none; -webkit-user-select: none; cursor: zoom-in; }
+.pz.zoomed { touch-action: none; cursor: grab; }
+.pz.dragging { cursor: grabbing; }
+.pz-in { transform-origin: 0 0; will-change: transform; }
+.pz-in > svg, .pz-in > img { display: block; margin: 0 !important; }
+.pz-ctl { position: absolute; right: 6px; bottom: 6px; display: flex; gap: 4px; }
+.pz-ctl button { width: 26px; height: 26px; padding: 0; border-radius: 6px; border: 1px solid var(--line); background: rgba(11, 13, 18, .78); color: var(--text); font-size: 15px; line-height: 1; cursor: pointer; }
+.pz-ctl button:hover { border-color: var(--accent); }
+.imap .pz { margin-top: 6px; max-width: 640px; border: 1px solid var(--line); }
+.imap .pz img { margin-top: 0; border: 0; border-radius: 0; }
+#detail .pz { margin: 4px 0 3px; border: 1px solid var(--line); }
+#detail .pz .zmap { border: 0; border-radius: 0; }
 .map-labels { display: flex; align-items: center; gap: 6px; font-size: .76rem; color: var(--dim); margin: 4px 0 0; cursor: pointer; width: fit-content; text-transform: none; letter-spacing: 0; font-weight: 400; }
 .map-labels input { width: 14px; height: 14px; accent-color: var(--accent); margin: 0; }
 .imap { margin-top: 8px; }
@@ -895,8 +907,9 @@ function renderLocMap() {
   const coords = pts.slice(0, 6).map(([x, y]) => `${x}, ${y}`).join(' \u00b7 ') + (pts.length > 6 ? ` and ${pts.length - 6} more` : '');
   const labels = store.get('ah.mapLabels') !== '0';
   const toggle = `<label class="map-labels"><input type="checkbox" id="mapLabels"${labels ? ' checked' : ''}> Show labels</label>`;
-  $('locMap').innerHTML = `${tabs}${toggle}<div class="zwrap${labels ? '' : ' nolabels'}">${mapSvg(zoneName(locState.zone), pts, locState.zone)}</div><div class="coords">${esc(zoneName(locState.zone))}: ${esc(coords)}</div>` +
+  $('locMap').innerHTML = `${tabs}${toggle}<div class="zwrap${labels ? '' : ' nolabels'}">${pzWrap(mapSvg(zoneName(locState.zone), pts, locState.zone))}</div><div class="coords">${esc(zoneName(locState.zone))}: ${esc(coords)}</div>` +
     `<a href="https://www.wowhead.com/${WOWHEAD_PATH[state.game] ?? 'classic/'}${src.kind}=${src.id}" target="_blank" rel="noopener">Open the full map on Wowhead</a>`;
+  panZoom($('locMap').querySelector('.pz'));
 }
 
 const MINING_NODE = /\b(vein|deposit|lode|seam)\b/i;
@@ -2177,10 +2190,103 @@ async function renderHarvest() {
     : `${realm}: no gathered materials are listed on this server's auction house (they trade on the region-wide market, which Blizzard's API returns empty). Ranked by vendor value until that changes.`);
 }
 
+function pzWrap(inner) {
+  return `<div class="pz"><div class="pz-in">${inner}</div><div class="pz-ctl"><button type="button" data-pz="in" aria-label="Zoom in">+</button><button type="button" data-pz="out" aria-label="Zoom out">\u2212</button><button type="button" data-pz="reset" aria-label="Reset zoom">\u21ba</button></div></div>`;
+}
+
+function panZoom(box) {
+  if (!box || box.dataset.pzOn) return;
+  box.dataset.pzOn = '1';
+  const inner = box.querySelector('.pz-in');
+  let s = 1;
+  let x = 0;
+  let y = 0;
+  const pts = new Map();
+  let pinch = null;
+  const marks = () => box.querySelectorAll('circle.mk');
+  const apply = () => {
+    const w = box.clientWidth;
+    const h = box.clientHeight;
+    s = Math.min(8, Math.max(1, s));
+    x = Math.min(0, Math.max(w - w * s, x));
+    y = Math.min(0, Math.max(h - h * s, y));
+    inner.style.transform = `translate(${x}px, ${y}px) scale(${s})`;
+    box.classList.toggle('zoomed', s > 1);
+    marks().forEach(c => {
+      if (!c.dataset.r) c.dataset.r = c.getAttribute('r');
+      c.setAttribute('r', (Number(c.dataset.r) / Math.pow(s, 0.8)).toFixed(3));
+    });
+  };
+  const zoomAt = (f, cx, cy) => {
+    const ns = Math.min(8, Math.max(1, s * f));
+    x = cx - ((cx - x) * ns) / s;
+    y = cy - ((cy - y) * ns) / s;
+    s = ns;
+    apply();
+  };
+  const local = e => {
+    const r = box.getBoundingClientRect();
+    return [e.clientX - r.left, e.clientY - r.top];
+  };
+  box.addEventListener('wheel', e => {
+    if (s <= 1 && e.deltaY > 0) return;
+    e.preventDefault();
+    const [cx, cy] = local(e);
+    zoomAt(e.deltaY < 0 ? 1.25 : 0.8, cx, cy);
+  }, { passive: false });
+  box.addEventListener('dblclick', e => {
+    if (e.target.closest('.pz-ctl')) return;
+    const [cx, cy] = local(e);
+    if (s >= 8) { s = 1; x = 0; y = 0; apply(); } else zoomAt(2, cx, cy);
+  });
+  box.addEventListener('pointerdown', e => {
+    if (e.target.closest('.pz-ctl')) return;
+    pts.set(e.pointerId, local(e));
+    if (pts.size === 2) {
+      const [a, b] = [...pts.values()];
+      pinch = { d: Math.hypot(a[0] - b[0], a[1] - b[1]) || 1 };
+    }
+    if (s > 1 || pts.size === 2) box.setPointerCapture(e.pointerId);
+  });
+  box.addEventListener('pointermove', e => {
+    if (!pts.has(e.pointerId)) return;
+    const prev = pts.get(e.pointerId);
+    const cur = local(e);
+    pts.set(e.pointerId, cur);
+    if (pts.size === 2 && pinch) {
+      const [a, b] = [...pts.values()];
+      const d = Math.hypot(a[0] - b[0], a[1] - b[1]) || 1;
+      zoomAt(d / pinch.d, (a[0] + b[0]) / 2, (a[1] + b[1]) / 2);
+      pinch.d = d;
+    } else if (pts.size === 1 && s > 1) {
+      x += cur[0] - prev[0];
+      y += cur[1] - prev[1];
+      apply();
+      box.classList.add('dragging');
+    }
+  });
+  const end = e => {
+    pts.delete(e.pointerId);
+    if (pts.size < 2) pinch = null;
+    if (!pts.size) box.classList.remove('dragging');
+  };
+  box.addEventListener('pointerup', end);
+  box.addEventListener('pointercancel', end);
+  box.addEventListener('click', e => {
+    const b = e.target.closest('.pz-ctl [data-pz]');
+    if (!b) return;
+    const w = box.clientWidth / 2;
+    const h = box.clientHeight / 2;
+    if (b.dataset.pz === 'in') zoomAt(1.5, w, h);
+    else if (b.dataset.pz === 'out') zoomAt(1 / 1.5, w, h);
+    else { s = 1; x = 0; y = 0; apply(); }
+  });
+}
+
 function instMap(name) {
   const m = mapIndex.instances[name];
   if (!m) return '';
-  return `<details class="imap"><summary>Map of ${esc(name)}</summary><img loading="lazy" src="static/maps/${esc(m.img)}.webp" width="${m.w}" height="${m.h}" alt="Overhead map of ${esc(name)}"></details>`;
+  return `<details class="imap"><summary>Map of ${esc(name)}</summary>${pzWrap(`<img loading="lazy" draggable="false" src="static/maps/${esc(m.img)}.webp" width="${m.w}" height="${m.h}" alt="Overhead map of ${esc(name)}">`)}</details>`;
 }
 
 async function renderDrops() {
@@ -2225,6 +2331,7 @@ async function renderDrops() {
       `<div class="inner"><table class="craft-table"><thead><tr><th>#</th><th>Item and source</th><th>Lowest price</th><th class="hide-sm">Listings</th><th>Drop chance</th><th>Per kill</th></tr></thead><tbody>${body}</tbody></table>${instMap(c.name)}</div></details>`;
   }).join('') : `<div class="empty-note">No ${label} drops are listed on this server with that many listings.</div>`;
   const realm = state.snap.realms.join(' / ');
+  $('dropsList').querySelectorAll('.pz').forEach(panZoom);
   setStatus(`${realm}: ${cards.length} ${label}${cards.length === 1 ? '' : 's'} with drops listed on the auction house${empty ? `, ${empty} with none listed right now` : ''}. Updated ${ago(state.snap.u)}.`);
 }
 

@@ -378,3 +378,8 @@ These were built from documentation and forum reports, then tested against a moc
 
 ## Top 10 profits tab removed
 - The Top 10 profits tab (gathered, dungeon drops, crafted and other) was removed with its code. Crafting profit, Harvesting, Dungeon drops and Raid drops cover the same ground per profession and per instance. Earlier notes about that tab are history only. A saved tab of `profit` now opens Listings.
+
+## Zoom and pan on maps
+- Spawn maps in the item popup and the "Map of ..." folds on the Dungeon and Raid drops cards can be zoomed and moved: mouse wheel or pinch to zoom around the pointer (1x to 8x), drag to move once zoomed, double-click to zoom in 2x (double-click at 8x resets), and +, - and reset buttons in the bottom right corner.
+- At 1x the wheel and vertical swipes still scroll the page, so the popup doesn't get stuck on the map. Spawn markers shrink as you zoom so they stay readable instead of covering the map.
+- Code: `pzWrap()` wraps the SVG or image in `.pz > .pz-in`, and `panZoom(box)` applies a CSS translate and scale to `.pz-in`, clamped so the map always fills its box.
