@@ -61,7 +61,6 @@ select, input[type="text"], input[type="number"], input[type="search"] {
   min-width: 0;
 }
 select:focus, input:focus, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-.realm-row { display: flex; flex-direction: column; gap: 6px; }
 .status {
   display: flex;
   flex-wrap: wrap;
@@ -159,6 +158,9 @@ canvas { width: 100%; height: 220px; display: block; background: var(--panel-2);
 .tabs button { border-radius: 10px; padding: 9px 16px; background: transparent; color: var(--dim); }
 .tabs button[aria-selected="true"] { background: var(--panel-2); color: var(--text); border-color: var(--accent); }
 .alt-mode .lf { display: none; }
+.pair { display: flex; gap: 6px; }
+.pair input { min-width: 0; }
+thead th.plain { padding: 10px 12px; }
 .zmap { width: 100%; max-width: 560px; display: block; background: #182031; border: 1px solid var(--line); border-radius: 10px; margin: 6px 0 4px; }
 .zmap .gl { stroke: rgba(255, 255, 255, .07); stroke-width: .15; }
 .zmap .mk { fill: var(--accent); stroke: #0b0d12; stroke-width: .35; }
@@ -255,9 +257,8 @@ footer p { margin: 4px 0; }
       <label for="region">Region</label>
       <select id="region"></select>
     </div>
-    <div class="field wide realm-row">
+    <div class="field wide">
       <label for="realm">Server</label>
-      <input type="search" id="realmFilter" placeholder="Filter servers by name" aria-label="Filter servers">
       <select id="realm"></select>
     </div>
     <div class="field lf">
@@ -271,6 +272,26 @@ footer p { margin: 4px 0; }
     <div class="field lf">
       <label for="maxPrice">Max price (gold)</label>
       <input type="number" id="maxPrice" min="0" step="any" inputmode="decimal">
+    </div>
+    <div class="field lf">
+      <label for="ilvlMin">Item level</label>
+      <div class="pair">
+        <input type="number" id="ilvlMin" min="0" step="1" inputmode="numeric" placeholder="Min" aria-label="Minimum item level">
+        <input type="number" id="ilvlMax" min="0" step="1" inputmode="numeric" placeholder="Max" aria-label="Maximum item level">
+      </div>
+    </div>
+    <div class="field lf">
+      <label for="sortBy">Sort by</label>
+      <select id="sortBy">
+        <option value="q">Quantity</option>
+        <option value="n">Listings</option>
+        <option value="m">Lowest price</option>
+        <option value="name">Name</option>
+        <option value="ilvl">Item level</option>
+        <option value="req">Required level</option>
+        <option value="dps">DPS (weapons)</option>
+        <option value="armor">Armor value</option>
+      </select>
     </div>
     <div class="field lf">
       <label for="category">Category</label>
@@ -315,6 +336,9 @@ footer p { margin: 4px 0; }
       <thead>
         <tr>
           <th data-key="name" aria-sort="none"><button type="button">Item</button></th>
+          <th data-key="ilvl" aria-sort="none"><button type="button">iLvl</button></th>
+          <th data-key="req" class="hide-sm" aria-sort="none"><button type="button">Req</button></th>
+          <th class="plain">DPS / Armor</th>
           <th data-key="q" aria-sort="descending"><button type="button">Quantity</button></th>
           <th data-key="n" class="hide-sm" aria-sort="none"><button type="button">Listings</button></th>
           <th data-key="m" aria-sort="none"><button type="button">Lowest price</button></th>
@@ -764,13 +788,8 @@ function fillSelect(sel, options, selected) {
 }
 
 function fillRealms() {
-  const q = $('realmFilter').value.trim().toLowerCase();
   const current = state.realmId === null ? null : String(state.realmId);
-  const matches = state.realms.filter(r => !q || r.names.join(' ').toLowerCase().includes(q));
-  const shown = matches.length ? matches : state.realms.filter(r => String(r.id) === current);
-  const options = shown.map(r => ({ value: r.id, label: r.names.join(' / ') }));
-  fillSelect($('realm'), options, current);
-  return matches.length ? options : [];
+  fillSelect($('realm'), state.realms.map(r => ({ value: r.id, label: r.names.join(' / ') })), current);
 }
 
 async function init() {
@@ -811,7 +830,6 @@ async function onRegion(restore) {
   }
   if (seq !== state.seq) return;
   state.realms = realmCache.get(key);
-  $('realmFilter').value = '';
   const saved = restore ? store.get('ah.realm') : null;
   const found = state.realms.find(r => String(r.id) === saved);
   state.realmId = found ? found.id : state.realms[0].id;
@@ -864,8 +882,16 @@ function filteredRows() {
   const max = parseFloat($('maxPrice').value);
   const cat = $('category').value;
   const wc = Number($('wearClass').value) || 0;
+  const lmin = parseInt($('ilvlMin').value, 10);
+  const lmax = parseInt($('ilvlMax').value, 10);
   const out = [];
   for (const e of state.snap.items) {
+    if (!isNaN(lmin) || !isNaN(lmax)) {
+      const lv = statOf(e.i, 4);
+      if (!lv) continue;
+      if (!isNaN(lmin) && lv < lmin) continue;
+      if (!isNaN(lmax) && lv > lmax) continue;
+    }
     if (cat || wc) {
       const info = state.info && state.info[e.i];
       if (!info) continue;
@@ -880,8 +906,17 @@ function filteredRows() {
   }
   const dir = state.sortDir;
   const key = state.sortKey;
+  const STAT_INDEX = { ilvl: 4, req: 5, dps: 6, armor: 7 };
   out.sort((a, b) => {
     if (key === 'name') return dir * a.name.localeCompare(b.name);
+    if (STAT_INDEX[key]) {
+      const va = statOf(a.e.i, STAT_INDEX[key]);
+      const vb = statOf(b.e.i, STAT_INDEX[key]);
+      if (!va && !vb) return 0;
+      if (!va) return 1;
+      if (!vb) return -1;
+      return dir * (va - vb);
+    }
     if (key === 'm') {
       if (a.e.m === null && b.e.m === null) return 0;
       if (a.e.m === null) return 1;
@@ -893,6 +928,19 @@ function filteredRows() {
   return out;
 }
 
+function statOf(id, k) {
+  const info = state.info && state.info[id];
+  return info && typeof info[k] === 'number' ? info[k] : 0;
+}
+
+function statText(id) {
+  const dps = statOf(id, 6);
+  if (dps) return `${dps.toFixed(1)} DPS`;
+  const armor = statOf(id, 7);
+  if (armor) return `${armor.toLocaleString()} Armor`;
+  return '<span class="dim">-</span>';
+}
+
 function render() {
   if (!state.snap) return;
   const list = filteredRows();
@@ -900,7 +948,7 @@ function render() {
   if (state.page >= pages) state.page = pages - 1;
   const slice = list.slice(state.page * PAGE_SIZE, (state.page + 1) * PAGE_SIZE);
   $('rows').innerHTML = slice.map(({ e, name }) =>
-    `<tr data-id="${e.i}" tabindex="0"><td>${iconHtml(e.i)}<span${qs(e.i)}>${esc(name)}</span></td><td>${e.q.toLocaleString()}</td><td class="hide-sm">${e.n.toLocaleString()}</td><td>${money(e.m)}</td></tr>`
+    `<tr data-id="${e.i}" tabindex="0"><td>${iconHtml(e.i)}<span${qs(e.i)}>${esc(name)}</span></td><td>${statOf(e.i, 4) || '<span class="dim">-</span>'}</td><td class="hide-sm">${statOf(e.i, 5) || '<span class="dim">-</span>'}</td><td>${statText(e.i)}</td><td>${e.q.toLocaleString()}</td><td class="hide-sm">${e.n.toLocaleString()}</td><td>${money(e.m)}</td></tr>`
   ).join('');
   $('empty').hidden = list.length > 0;
   $('empty').textContent = 'No items match your filters.';
@@ -1596,19 +1644,8 @@ $('realm').addEventListener('change', () => {
   state.realmId = $('realm').value === 'commodities' ? 'commodities' : Number($('realm').value);
   loadRealm();
 });
-let filterTimer = null;
-$('realmFilter').addEventListener('input', () => {
-  clearTimeout(filterTimer);
-  filterTimer = setTimeout(() => {
-    const options = fillRealms();
-    if (options.length && !options.some(o => String(o.value) === String(state.realmId))) {
-      $('realm').selectedIndex = 0;
-      $('realm').dispatchEvent(new Event('change'));
-    }
-  }, 250);
-});
 let searchTimer = null;
-['search', 'minPrice', 'maxPrice'].forEach(id => $(id).addEventListener('input', () => {
+['search', 'minPrice', 'maxPrice', 'ilvlMin', 'ilvlMax'].forEach(id => $(id).addEventListener('input', () => {
   clearTimeout(searchTimer);
   searchTimer = setTimeout(() => { state.page = 0; render(); }, 150);
 }));
@@ -1616,9 +1653,25 @@ document.querySelectorAll('thead th[data-key]').forEach(th => th.addEventListene
   const key = th.dataset.key;
   if (state.sortKey === key) state.sortDir = -state.sortDir;
   else { state.sortKey = key; state.sortDir = key === 'name' || key === 'm' ? 1 : -1; }
+  if ([...$('sortBy').options].some(o => o.value === key)) $('sortBy').value = key;
   state.page = 0;
   render();
 }));
+$('sortBy').addEventListener('change', () => {
+  state.sortKey = $('sortBy').value;
+  state.sortDir = state.sortKey === 'name' || state.sortKey === 'm' ? 1 : -1;
+  store.set('ah.sort', state.sortKey);
+  state.page = 0;
+  render();
+});
+{
+  const savedSort = store.get('ah.sort');
+  if (savedSort && [...$('sortBy').options].some(o => o.value === savedSort)) {
+    $('sortBy').value = savedSort;
+    state.sortKey = savedSort;
+    state.sortDir = savedSort === 'name' || savedSort === 'm' ? 1 : -1;
+  }
+}
 $('rows').addEventListener('click', ev => {
   const tr = ev.target.closest('tr[data-id]');
   if (tr) openDetail(Number(tr.dataset.id));

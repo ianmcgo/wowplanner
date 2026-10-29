@@ -246,7 +246,10 @@ These were built from documentation and forum reports, then tested against a moc
 ## Listing filters
 - **Category** uses Blizzard's item class: Weapon (2), Armor (4), Container (1, 11), Consumable (0), Trade Goods (7 plus gems 3, reagents 5 and item enhancements 8), Recipe (9), and Quest / Miscellaneous for everything else (quest items, pets, mounts, keys, glyphs).
 - **Wearable by** keeps only equippable gear the chosen class can use in MoP: cloth and miscellaneous slots for everyone, leather, mail, plate and shields by class, weapon types by class (ranged weapons are Hunter only, wands are Mage, Priest and Warlock), and any "Classes:" restriction on the item.
-- Both use `{game}/iteminfo.json` (`id: [itemClass, itemSubclass, inventoryType, allowedClassIds?]`), saved by the collector during item lookups. Items not yet looked up are hidden while a filter is on.
+- Both use `{game}/iteminfo.json` (`id: [itemClass, itemSubclass, inventoryType, allowedClassIds or 0, itemLevel, requiredLevel, dps, armor]`), saved by the collector during item lookups. Raising `INFO_VERSION` makes the next runs look every item up again. Items not yet looked up are hidden while a filter is on.
+- **Item level** min and max narrow the listings to an item level range.
+- **Sort by**: quantity, listings, lowest price, name, item level, required level, DPS (weapons) or armor value. The table has iLvl, Req and DPS / Armor columns; clicking the Item, iLvl, Req, Quantity, Listings or Lowest price headers also sorts and flips direction. Items without the chosen stat go to the end.
+- The server picker is a plain dropdown.
 - Item names are colored by rarity (from the tooltip data) in every table and card.
 
 ## Outside data sources considered
