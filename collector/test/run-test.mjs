@@ -108,6 +108,12 @@ try {
   assert.ok(tips['100'].l.some(l => l[0].startsWith('Equip:') && l[1] === '#00ff00'));
   assert.equal(tips['139'], null);
 
+  const info = JSON.parse(readFileSync(path.join(out, 'retail', 'iteminfo.json'), 'utf8'));
+  assert.deepEqual(info['100'], [7, 0, 'NON_EQUIP']);
+  assert.deepEqual(info['104'], [2, 7, 'WEAPON', [1, 2]]);
+  assert.deepEqual(info['109'], [2, 7, 'WEAPON']);
+  assert.equal(info['139'], null);
+
   const icons = JSON.parse(readFileSync(path.join(out, 'retail', 'icons.json'), 'utf8'));
   assert.equal(icons.base, 'https://render.worldofwarcraft.com/us/icons/56/');
   assert.equal(icons.icons['100'], 'inv_test_100');

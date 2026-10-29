@@ -72,7 +72,8 @@ export function startMock(port) {
         id,
         name: `Test Item ${id}`,
         item_class: kind ? { id: 7, name: 'Trade Goods' } : { id: 2, name: 'Weapon' },
-        item_subclass: { id: 0, name: kind || 'Sword' },
+        item_subclass: { id: kind ? 0 : 7, name: kind || 'Sword' },
+        inventory_type: { type: kind ? 'NON_EQUIP' : 'WEAPON', name: kind ? 'Non-equippable' : 'One-Hand' },
         preview_item: {
           quality: { type: 'RARE', name: 'Rare' },
           level: { value: 60, display_string: 'Item Level 60' },
@@ -82,7 +83,7 @@ export function startMock(port) {
           armor: { value: 500, display: { display_string: '500 Armor', color: { r: 255, g: 255, b: 255, a: 1 } } },
           stats: [{ value: 10, display: { display_string: '+10 Strength', color: { r: 255, g: 255, b: 255, a: 1 } } }],
           spells: [{ description: 'Equip: Improves your chance to hit by 1%.', display_color: { r: 0, g: 255, b: 0, a: 1 } }],
-          requirements: { level: { value: 60, display_string: 'Requires Level 60' } },
+          requirements: id % 10 === 4 ? { level: { value: 60, display_string: 'Requires Level 60' }, playable_classes: { links: [{ id: 1, name: 'Warrior' }, { id: 2, name: 'Paladin' }], display_string: 'Classes: Warrior, Paladin' } } : { level: { value: 60, display_string: 'Requires Level 60' } },
           sell_price: { value: 12345 },
           description: 'Forged in mock fire.'
         }

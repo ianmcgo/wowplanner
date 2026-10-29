@@ -159,6 +159,19 @@ canvas { width: 100%; height: 220px; display: block; background: var(--panel-2);
 .tabs button { border-radius: 10px; padding: 9px 16px; background: transparent; color: var(--dim); }
 .tabs button[aria-selected="true"] { background: var(--panel-2); color: var(--text); border-color: var(--accent); }
 .alt-mode .lf { display: none; }
+.zmap { width: 100%; display: block; background: #182031; border: 1px solid var(--line); border-radius: 10px; margin: 6px 0 4px; }
+.zmap .gl { stroke: rgba(255, 255, 255, .07); stroke-width: .15; }
+.zmap .mk { fill: var(--accent); stroke: #0b0d12; stroke-width: .35; }
+.zmap .zl { fill: var(--dim); font-size: 3px; font-family: system-ui, sans-serif; }
+.loc-list { list-style: none; margin: 4px 0 8px; padding: 0; display: grid; gap: 6px; }
+.loc-list button { all: unset; box-sizing: border-box; display: block; width: 100%; cursor: pointer; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel-2); }
+.loc-list button[aria-pressed="true"] { border-color: var(--accent); }
+.loc-list .sub { color: var(--dim); font-size: .86rem; }
+.fac { display: inline-block; font-size: .72rem; border-radius: 999px; padding: 0 7px; margin-left: 6px; border: 1px solid var(--line); color: var(--dim); }
+.fac.a { color: #6fa8ff; border-color: #3b5f9e; }
+.fac.h { color: #ff7b72; border-color: #9e3b3b; }
+.zone-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.coords { color: var(--dim); font-size: .84rem; }
 .linkish { all: unset; cursor: pointer; color: inherit; }
 .linkish:hover, .linkish:focus-visible { color: var(--accent-2); text-decoration: underline; }
 .prof { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; margin-bottom: 10px; }
@@ -249,6 +262,36 @@ footer p { margin: 4px 0; }
     <div class="field lf">
       <label for="maxPrice">Max price (gold)</label>
       <input type="number" id="maxPrice" min="0" step="any" inputmode="decimal">
+    </div>
+    <div class="field lf">
+      <label for="category">Category</label>
+      <select id="category">
+        <option value="">All categories</option>
+        <option value="weapon">Weapon</option>
+        <option value="armor">Armor</option>
+        <option value="container">Container</option>
+        <option value="consumable">Consumable</option>
+        <option value="trade">Trade Goods</option>
+        <option value="recipe">Recipe</option>
+        <option value="misc">Quest / Miscellaneous</option>
+      </select>
+    </div>
+    <div class="field lf">
+      <label for="wearClass">Wearable by</label>
+      <select id="wearClass">
+        <option value="">Any class</option>
+        <option value="6">Death Knight</option>
+        <option value="11">Druid</option>
+        <option value="3">Hunter</option>
+        <option value="8">Mage</option>
+        <option value="10">Monk</option>
+        <option value="2">Paladin</option>
+        <option value="5">Priest</option>
+        <option value="4">Rogue</option>
+        <option value="7">Shaman</option>
+        <option value="9">Warlock</option>
+        <option value="1">Warrior</option>
+      </select>
     </div>
   </section>
 
@@ -342,6 +385,10 @@ footer p { margin: 4px 0; }
     <div class="stats" id="dlgStats"></div>
     <h3>How to get it</h3>
     <div class="how" id="dlgHow"></div>
+    <div id="dlgLocWrap" hidden>
+      <h3>Where to find it</h3>
+      <div id="dlgLoc"></div>
+    </div>
     <h3>Cheapest listings</h3>
     <table class="mini" id="listingsTable">
       <thead><tr><th>Qty</th><th>Each</th><th>Stack total</th><th>Time left</th><th>Faction</th></tr></thead>
@@ -358,6 +405,7 @@ footer p { margin: 4px 0; }
     <p>Created by Ian McGonigal &middot; <a href="https://ianmcgo.github.io/website/" target="_blank" rel="noopener">Website</a> &middot; <a href="https://www.patreon.com/cw/ianmcg" target="_blank" rel="noopener">Patreon</a></p>
     <p>Fan-made tool, not affiliated with Blizzard Entertainment. Data comes from the Battle.net Game Data API.</p>
     <p>Item sources and recipes from <a href="https://github.com/Napalmsteak/WoW-Classic-Item-Caches" target="_blank" rel="noopener">WoW Classic Item Caches</a> by Napalmsteak, used with permission.</p>
+    <p>Vendor, drop and spawn locations derived from <a href="https://github.com/Questie/QuestieDB" target="_blank" rel="noopener">QuestieDB</a> (GPLv3).</p>
   </div>
 </footer>
 
@@ -443,6 +491,120 @@ function nameOf(id) {
 }
 
 const EXT_FILES = { classic: 'static/mop-classic-sources.json' };
+const LOC_FILES = { classic: 'static/mop-classic-locations.json' };
+const locCache = new Map();
+const infoCache = new Map();
+
+function ensureLocations(game) {
+  if (!LOC_FILES[game]) return Promise.resolve(null);
+  if (!locCache.has(game)) {
+    locCache.set(game, fetch(LOC_FILES[game], { cache: 'no-cache' }).then(r => (r.ok ? r.json() : null)).catch(() => null));
+  }
+  return locCache.get(game);
+}
+
+function ensureInfo(game) {
+  if (!infoCache.has(game)) infoCache.set(game, fetchData(`${game}/iteminfo.json`).catch(() => ({})));
+  return infoCache.get(game);
+}
+
+const CATEGORY_BY_CLASS = { 0: 'consumable', 1: 'container', 11: 'container', 2: 'weapon', 4: 'armor', 3: 'trade', 5: 'trade', 7: 'trade', 8: 'trade', 9: 'recipe' };
+const ALL_CLASSES = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+const ARMOR_OK = { 2: [1, 2, 3, 4, 6, 7, 10, 11], 3: [1, 2, 3, 6, 7], 4: [1, 2, 6], 6: [1, 2, 7] };
+const WEAPON_OK = {
+  0: [1, 2, 3, 4, 6, 7, 10], 1: [1, 2, 3, 6, 7], 2: [3], 3: [3], 4: [1, 2, 4, 5, 6, 7, 10, 11], 5: [1, 2, 6, 7, 11],
+  6: [1, 2, 3, 6, 10, 11], 7: [1, 2, 3, 4, 6, 8, 9, 10], 8: [1, 2, 3, 6], 10: [1, 3, 5, 7, 8, 9, 10, 11],
+  13: [1, 3, 4, 7, 10, 11], 14: ALL_CLASSES, 15: [1, 3, 4, 5, 7, 8, 9, 11], 16: [], 18: [3], 19: [5, 8, 9], 20: ALL_CLASSES
+};
+const NOT_WORN = new Set(['NON_EQUIP', 'BAG', 'QUIVER', 'AMMO']);
+
+function categoryOf(info) {
+  return CATEGORY_BY_CLASS[info[0]] || 'misc';
+}
+
+function wearable(info, cls) {
+  const [c, sub, inv, classes] = info;
+  if (!inv || NOT_WORN.has(inv)) return false;
+  if (classes && !classes.includes(cls)) return false;
+  if (c === 4) {
+    if (sub === 0 || sub === 1) return true;
+    return !!ARMOR_OK[sub] && ARMOR_OK[sub].includes(cls);
+  }
+  if (c === 2) return WEAPON_OK[sub] === undefined ? true : WEAPON_OK[sub].includes(cls);
+  return false;
+}
+
+function factionTag(f) {
+  if (f === 'A') return '<span class="fac a">Alliance</span>';
+  if (f === 'H') return '<span class="fac h">Horde</span>';
+  if (f === 'AH' || f === 'HA') return '<span class="fac">Both factions</span>';
+  return '<span class="fac">Hostile</span>';
+}
+
+function mapSvg(zone, pts) {
+  let grid = '';
+  for (let k = 10; k < 100; k += 10) grid += `<line class="gl" x1="${k}" y1="0" x2="${k}" y2="66.7"/>`;
+  for (let k = 10; k < 70; k += 10) grid += `<line class="gl" x1="0" y1="${(k * 0.667).toFixed(2)}" x2="100" y2="${(k * 0.667).toFixed(2)}"/>`;
+  const marks = pts.map(([x, y]) => `<circle class="mk" cx="${x}" cy="${(y * 0.667).toFixed(2)}" r="1.3"/>`).join('');
+  return `<svg class="zmap" viewBox="0 0 100 66.7" role="img" aria-label="${esc(zone)}: ${pts.length} location${pts.length === 1 ? '' : 's'}">${grid}${marks}<text class="zl" x="2" y="5">${esc(zone)}</text></svg>`;
+}
+
+const locState = { list: [], sel: 0, zone: null };
+
+function renderLocMap() {
+  const src = locState.list[locState.sel];
+  if (!src) return;
+  const zones = Object.keys(src.spawns);
+  if (!zones.includes(String(locState.zone))) locState.zone = zones[0];
+  const pts = src.spawns[locState.zone] || [];
+  const zoneName = z => (locState.zones[z] || `Zone ${z}`);
+  const tabs = zones.length > 1
+    ? `<div class="zone-tabs">${zones.map(z => `<button type="button" class="chip" data-zone="${z}" aria-pressed="${String(String(z) === String(locState.zone))}">${esc(zoneName(z))}</button>`).join('')}</div>`
+    : '';
+  const coords = pts.slice(0, 6).map(([x, y]) => `${x}, ${y}`).join(' \u00b7 ') + (pts.length > 6 ? ` and ${pts.length - 6} more` : '');
+  $('locMap').innerHTML = `${tabs}${mapSvg(zoneName(locState.zone), pts)}<div class="coords">${esc(zoneName(locState.zone))}: ${esc(coords)}</div>` +
+    `<a href="https://www.wowhead.com/${WOWHEAD_PATH[state.game] ?? 'classic/'}${src.kind}=${src.id}" target="_blank" rel="noopener">Open the full map on Wowhead</a>`;
+}
+
+async function fillLocations(id) {
+  const game = state.game;
+  const loc = await ensureLocations(game);
+  if (state.openId !== id || state.game !== game || !$('detail').open) return;
+  const entry = loc && loc.items[id];
+  if (!entry) {
+    $('dlgLocWrap').hidden = true;
+    return;
+  }
+  const list = [];
+  const add = (ids, kind, role) => {
+    for (const n of ids || []) {
+      const row = kind === 'npc' ? loc.npcs[n] : loc.objects[n];
+      if (!row) continue;
+      if (kind === 'npc') list.push({ id: n, kind, role, name: row[0], sub: row[1], fac: row[2], min: row[3], max: row[4], spawns: row[5] });
+      else list.push({ id: n, kind: 'object', role, name: row[0], spawns: row[1] });
+    }
+  };
+  add(entry.v, 'npc', 'Sold by');
+  add(entry.d, 'npc', 'Dropped by');
+  add(entry.o, 'object', 'Found in');
+  if (!list.length) {
+    $('dlgLocWrap').hidden = true;
+    return;
+  }
+  locState.list = list;
+  locState.sel = 0;
+  locState.zone = null;
+  locState.zones = loc.zones;
+  const items = list.map((src, k) => {
+    const zones = Object.keys(src.spawns).map(z => loc.zones[z] || `Zone ${z}`).join(', ');
+    const lvl = src.min ? ` \u00b7 level ${src.min}${src.max && src.max !== src.min ? '-' + src.max : ''}` : '';
+    const extra = src.kind === 'npc' ? `${src.sub ? ` &lt;${esc(src.sub)}&gt;` : ''}${src.role === 'Sold by' ? factionTag(src.fac) : ''}` : '';
+    return `<li><button type="button" data-loc="${k}" aria-pressed="${String(k === 0)}"><b>${esc(src.role)}:</b> ${esc(src.name)}${extra}<div class="sub">${esc(zones)}${esc(lvl)}</div></button></li>`;
+  }).join('');
+  $('dlgLoc').innerHTML = `<ul class="loc-list">${items}</ul><div id="locMap"></div>`;
+  $('dlgLocWrap').hidden = false;
+  renderLocMap();
+}
 const extCache = new Map();
 
 function ensureExt(game) {
@@ -492,6 +654,11 @@ function iconUrl(id) {
   const ic = state.icons && state.icons.icons ? state.icons.icons[id] : null;
   if (!ic) return null;
   return ic.startsWith('http') ? ic : `${state.icons.base}${ic}.jpg`;
+}
+
+function qs(id) {
+  const q = state.tips && state.tips[id] && state.tips[id].q;
+  return q && QUALITY_COLOR[q] ? ` style="color:${QUALITY_COLOR[q]}"` : '';
 }
 
 function iconHtml(id) {
@@ -584,9 +751,11 @@ async function loadRealm() {
     const iconsPromise = iconCache.has(state.game)
       ? Promise.resolve(iconCache.get(state.game))
       : fetchData(`${state.game}/icons.json`).catch(() => ({}));
-    const [snap, names, icons, ext] = await Promise.all([fetchData(`${key}/latest.json.gz`), namesPromise, iconsPromise, ensureExt(state.game)]);
+    const [snap, names, icons, ext, tips, info] = await Promise.all([fetchData(`${key}/latest.json.gz`), namesPromise, iconsPromise, ensureExt(state.game), ensureTips(state.game), ensureInfo(state.game)]);
     if (seq !== state.seq) return;
+    state.info = info || {};
     state.ext = ext;
+    state.tips = tips;
     nameCache.set(state.game, names);
     iconCache.set(state.game, icons);
     state.snap = snap;
@@ -611,8 +780,16 @@ function filteredRows() {
   const q = $('search').value.trim().toLowerCase();
   const min = parseFloat($('minPrice').value);
   const max = parseFloat($('maxPrice').value);
+  const cat = $('category').value;
+  const wc = Number($('wearClass').value) || 0;
   const out = [];
   for (const e of state.snap.items) {
+    if (cat || wc) {
+      const info = state.info && state.info[e.i];
+      if (!info) continue;
+      if (cat && categoryOf(info) !== cat) continue;
+      if (wc && !wearable(info, wc)) continue;
+    }
     const name = nameOf(e.i);
     if (q && !name.toLowerCase().includes(q) && String(e.i) !== q) continue;
     if (!isNaN(min) && (e.m === null || e.m < min * 10000)) continue;
@@ -641,7 +818,7 @@ function render() {
   if (state.page >= pages) state.page = pages - 1;
   const slice = list.slice(state.page * PAGE_SIZE, (state.page + 1) * PAGE_SIZE);
   $('rows').innerHTML = slice.map(({ e, name }) =>
-    `<tr data-id="${e.i}" tabindex="0"><td>${iconHtml(e.i)}${esc(name)}</td><td>${e.q.toLocaleString()}</td><td class="hide-sm">${e.n.toLocaleString()}</td><td>${money(e.m)}</td></tr>`
+    `<tr data-id="${e.i}" tabindex="0"><td>${iconHtml(e.i)}<span${qs(e.i)}>${esc(name)}</span></td><td>${e.q.toLocaleString()}</td><td class="hide-sm">${e.n.toLocaleString()}</td><td>${money(e.m)}</td></tr>`
   ).join('');
   $('empty').hidden = list.length > 0;
   $('empty').textContent = 'No items match your filters.';
@@ -782,7 +959,9 @@ function openDetail(id) {
   $('chartTip').textContent = 'Loading history';
   const dlg = $('detail');
   if (!dlg.open) dlg.showModal();
+  $('dlgLocWrap').hidden = true;
   fillHow(id);
+  fillLocations(id);
   drawChart();
   loadHistory().then(hist => {
     if (!$('detail').open || $('dlgTitle').textContent !== nameOf(id)) return;
@@ -1010,7 +1189,7 @@ async function renderProfit() {
     const profitSpan = it.profit === null
       ? `<span>After the 5% cut <b>${money(Math.round(it.revenue))}</b></span><span class="dim">Material cost unknown</span>`
       : `<span class="good">Profit <b>${money(Math.round(it.profit))}</b></span>`;
-    return `<li class="card"><div class="rank">${i + 1}</div><div><div class="card-title">${iconHtml(it.id)}<button type="button" class="linkish" data-open="${it.id}">${esc(nameOf(it.id))}</button></div>` +
+    return `<li class="card"><div class="rank">${i + 1}</div><div><div class="card-title">${iconHtml(it.id)}<button type="button" class="linkish" data-open="${it.id}"${qs(it.id)}>${esc(nameOf(it.id))}</button></div>` +
       `<div class="pstats">${profitSpan}<span>${sellLabel} <b>${money(Math.round(it.sell))}</b></span>` +
       (it.cost !== null && it.cost !== undefined && it.method === 'craft' ? `<span>Cost <b>${money(Math.round(it.cost))}</b></span>` : '') +
       `<span>Listings <b>${it.n.toLocaleString()}</b></span><span>For sale <b>${it.q.toLocaleString()}</b></span>` +
@@ -1097,7 +1276,7 @@ async function renderSales() {
   rows.sort((a, b) => (state.by === 'gold' ? b.gold - a.gold : b.perDay - a.perDay));
   const top = rows.slice(0, 20);
   $('salesRows').innerHTML = top.map((r, i) =>
-    `<tr><td>${i + 1}</td><td>${iconHtml(r.id)}<button type="button" class="linkish" data-open="${r.id}">${esc(nameOf(r.id))}</button>${r.region ? '<span class="badge">region-wide</span>' : ''}</td>` +
+    `<tr><td>${i + 1}</td><td>${iconHtml(r.id)}<button type="button" class="linkish" data-open="${r.id}"${qs(r.id)}>${esc(nameOf(r.id))}</button>${r.region ? '<span class="badge">region-wide</span>' : ''}</td>` +
     `<td>${fmtRate(r.perDay)}</td><td class="hide-sm">${fmtRate(r.listingsPerDay)}</td><td>${money(r.m)}</td><td>${money(Math.round(r.gold))}</td></tr>`
   ).join('');
   const span = rates.hours < 24 ? `${rates.hours.toFixed(1)} hours` : `${(rates.hours / 24).toFixed(1)} days`;
@@ -1138,7 +1317,7 @@ function profHtml(list, rates, emptyText) {
   if (!list.length) return `<div class="empty-note">${esc(emptyText)}</div>`;
   return list.map((b, i) => {
     const top = b.items.slice(0, 10).map(it =>
-      `<tr><td>${iconHtml(it.id)}<button type="button" class="linkish" data-open="${it.id}">${esc(nameOf(it.id))}</button></td><td>${money(it.m)}</td><td>${it.n.toLocaleString()}</td><td>${rates ? fmtRate(it.perDay) : '<span class="dim">-</span>'}</td><td>${rates ? money(Math.round(it.gold)) : '<span class="dim">-</span>'}</td></tr>`
+      `<tr><td>${iconHtml(it.id)}<button type="button" class="linkish" data-open="${it.id}"${qs(it.id)}>${esc(nameOf(it.id))}</button></td><td>${money(it.m)}</td><td>${it.n.toLocaleString()}</td><td>${rates ? fmtRate(it.perDay) : '<span class="dim">-</span>'}</td><td>${rates ? money(Math.round(it.gold)) : '<span class="dim">-</span>'}</td></tr>`
     ).join('');
     return `<details class="prof"${i === 0 ? ' open' : ''}><summary><span class="rk">${i + 1}</span><span class="pn">${esc(b.prof)}</span>` +
       (rates ? `<span>Gold per day <b>${money(Math.round(b.gold))}</b></span><span>Sold per day <b>${fmtRate(b.sold)}</b></span>` : '') +
@@ -1197,6 +1376,30 @@ $('tabListings').addEventListener('click', () => setMode('listings'));
 $('tabProfit').addEventListener('click', () => setMode('profit'));
 $('tabSales').addEventListener('click', () => setMode('sales'));
 $('tabProfs').addEventListener('click', () => setMode('profs'));
+$('dlgLoc').addEventListener('click', ev => {
+  const b = ev.target.closest('[data-loc]');
+  if (b) {
+    locState.sel = Number(b.dataset.loc);
+    locState.zone = null;
+    $('dlgLoc').querySelectorAll('[data-loc]').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+    renderLocMap();
+    return;
+  }
+  const z = ev.target.closest('[data-zone]');
+  if (z) {
+    locState.zone = z.dataset.zone;
+    renderLocMap();
+  }
+});
+for (const fid of ['category', 'wearClass']) {
+  const saved = store.get('ah.' + fid);
+  if (saved && [...$(fid).options].some(o => o.value === saved)) $(fid).value = saved;
+  $(fid).addEventListener('change', () => {
+    store.set('ah.' + fid, $(fid).value);
+    state.page = 0;
+    render();
+  });
+}
 document.addEventListener('click', ev => {
   const b = ev.target.closest('[data-open]');
   if (b) openDetail(Number(b.dataset.open));

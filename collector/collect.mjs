@@ -21,6 +21,7 @@ const SOURCES_REFRESH_HOURS = Number(env.SOURCES_REFRESH_HOURS || 72);
 const SOURCES_VERSION = 2;
 const CATS_VERSION = 2;
 const TIPS_VERSION = 1;
+const INFO_VERSION = 1;
 const diagnostics = {};
 const commodityHref = new Map();
 const KNOWN_REGIONS = ['us', 'eu', 'kr', 'tw'];
@@ -414,6 +415,7 @@ async function loadMeta(game) {
     names: (await readJson(path.join(dir, 'items.json'))) || {},
     cats: info.catsVersion === CATS_VERSION ? (await readJson(path.join(dir, 'cats.json'))) || {} : {},
     tips: info.tipsVersion === TIPS_VERSION ? ((await readGz(path.join(dir, 'tooltips.json.gz'))) || {}) : {},
+    info: info.infoVersion === INFO_VERSION ? ((await readJson(path.join(dir, 'iteminfo.json'))) || {}) : {},
     iconBase: icons.base || null,
     icons: icons.icons || {},
     staticNs: null
@@ -426,7 +428,8 @@ async function saveMeta(game, meta) {
   await writeJson(path.join(dir, 'cats.json'), meta.cats);
   await writeJson(path.join(dir, 'icons.json'), { base: meta.iconBase, icons: meta.icons });
   await writeGz(path.join(dir, 'tooltips.json.gz'), meta.tips);
-  await writeJson(path.join(dir, 'meta.json'), { catsVersion: CATS_VERSION, tipsVersion: TIPS_VERSION, staticNs: meta.staticNs });
+  await writeJson(path.join(dir, 'iteminfo.json'), meta.info);
+  await writeJson(path.join(dir, 'meta.json'), { catsVersion: CATS_VERSION, tipsVersion: TIPS_VERSION, infoVersion: INFO_VERSION, staticNs: meta.staticNs });
 }
 
 async function probeStatic(game, region, base, meta) {
@@ -496,6 +499,16 @@ function rgb(c) {
   return '#' + h(c.r) + h(c.g) + h(c.b);
 }
 
+function infoOf(item) {
+  const cls = item.item_class ? item.item_class.id : null;
+  const sub = item.item_subclass ? item.item_subclass.id : null;
+  const inv = item.inventory_type ? item.inventory_type.type : null;
+  const p = item.preview_item || {};
+  const pc = p.requirements && p.requirements.playable_classes;
+  const classes = pc && Array.isArray(pc.links) ? pc.links.map(c => c.id).filter(Boolean) : null;
+  return classes && classes.length ? [cls, sub, inv, classes] : [cls, sub, inv];
+}
+
 function tooltipOf(item) {
   const p = item.preview_item;
   if (!p) return null;
@@ -540,7 +553,7 @@ function tooltipOf(item) {
 async function resolveItemNames(game, region, base, seen, meta) {
   const ns = meta.staticNs || game.static.replace('{r}', region);
   const missing = [...seen.entries()]
-    .filter(([id]) => !(id in meta.names) || !(id in meta.cats) || !(id in meta.tips))
+    .filter(([id]) => !(id in meta.names) || !(id in meta.cats) || !(id in meta.tips) || !(id in meta.info))
     .sort((a, b) => b[1] - a[1])
     .slice(0, ITEM_LOOKUPS)
     .map(([id]) => id);
@@ -552,7 +565,9 @@ async function resolveItemNames(game, region, base, seen, meta) {
         else if (!(id in meta.names)) meta.names[id] = null;
         meta.cats[id] = categoryOf(item);
         meta.tips[id] = tooltipOf(item);
+        meta.info[id] = infoOf(item);
       } else {
+        meta.info[id] = null;
         if (!(id in meta.names)) meta.names[id] = null;
         meta.cats[id] = null;
         meta.tips[id] = null;
