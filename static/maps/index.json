@@ -1273,6 +1273,69 @@
    "src": "zone",
    "name": "Krasarang Wilds",
    "kb": 101
+  },
+  "6589": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Lightning Vein Mine",
+   "kb": 60
+  },
+  "6592": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "The Swollen Vault",
+   "kb": 66
+  },
+  "6609": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Ruins of Ogudei",
+   "kb": 55
+  },
+  "6615": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Krasarang Wilds",
+   "kb": 114
+  },
+  "6665": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Deepwind Gorge",
+   "kb": 79
+  },
+  "6678": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Dun Morogh",
+   "kb": 139
+  },
+  "6733": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Vale of Eternal Blossoms",
+   "kb": 81
+  },
+  "6738": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "Siege of Orgrimmar",
+   "kb": 82
+  },
+  "6862": {
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "name": "The Halfhill Market",
+   "kb": 93
   }
  },
  "instances": {
@@ -1540,6 +1603,13 @@
    "h": 668,
    "src": "zone",
    "kb": 145
+  },
+  "Siege of Orgrimmar": {
+   "img": "z6738",
+   "w": 1002,
+   "h": 668,
+   "src": "zone",
+   "kb": 82
   }
  }
 }
