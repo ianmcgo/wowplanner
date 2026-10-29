@@ -505,18 +505,63 @@ const state = {
 const realmCache = new Map();
 const nameCache = new Map();
 
-async function fetchData(rel) {
-  const res = await fetch(BASE + rel, { cache: 'no-cache' });
-  if (!res.ok) throw new Error(`${res.status} for ${rel}`);
-  if (rel.endsWith('.gz')) {
-    const buf = new Uint8Array(await res.arrayBuffer());
-    if (buf[0] === 0x1f && buf[1] === 0x8b) {
-      const stream = new Blob([buf]).stream().pipeThrough(new DecompressionStream('gzip'));
-      return JSON.parse(await new Response(stream).text());
-    }
-    return JSON.parse(new TextDecoder().decode(buf));
+const CACHE_NAME = 'ah-data-v1';
+
+async function openCache() {
+  try {
+    return await caches.open(CACHE_NAME);
+  } catch {
+    return null;
   }
-  return res.json();
+}
+
+async function parseBody(res) {
+  const buf = new Uint8Array(await res.arrayBuffer());
+  if (buf[0] === 0x1f && buf[1] === 0x8b) {
+    const stream = new Blob([buf]).stream().pipeThrough(new DecompressionStream('gzip'));
+    return JSON.parse(await new Response(stream).text());
+  }
+  return JSON.parse(new TextDecoder().decode(buf));
+}
+
+async function netJson(url, revalidate) {
+  const res = await fetch(url, revalidate ? { cache: 'no-cache' } : {});
+  if (!res.ok) throw new Error(`${res.status} for ${url}`);
+  const copy = res.clone();
+  openCache().then(c => c && c.put(url, copy)).catch(() => {});
+  return parseBody(res);
+}
+
+async function cachedJson(url) {
+  const c = await openCache();
+  if (!c) return null;
+  try {
+    const r = await c.match(url);
+    return r ? await parseBody(r) : null;
+  } catch {
+    return null;
+  }
+}
+
+async function getJsonFast(url, opts = {}) {
+  if (opts.swr) {
+    const hit = await cachedJson(url);
+    if (hit) {
+      netJson(url, true).catch(() => {});
+      return hit;
+    }
+  }
+  try {
+    return await netJson(url, opts.revalidate !== false);
+  } catch (err) {
+    const hit = await cachedJson(url);
+    if (hit) return hit;
+    throw err;
+  }
+}
+
+function fetchData(rel, opts) {
+  return getJsonFast(BASE + rel, opts);
 }
 
 function money(c) {
@@ -549,13 +594,13 @@ const infoCache = new Map();
 function ensureLocations(game) {
   if (!LOC_FILES[game]) return Promise.resolve(null);
   if (!locCache.has(game)) {
-    locCache.set(game, fetch(LOC_FILES[game], { cache: 'no-cache' }).then(r => (r.ok ? r.json() : null)).catch(() => null));
+    locCache.set(game, fetchStatic(LOC_FILES[game]));
   }
   return locCache.get(game);
 }
 
 function ensureInfo(game) {
-  if (!infoCache.has(game)) infoCache.set(game, fetchData(`${game}/iteminfo.json`).catch(() => ({})));
+  if (!infoCache.has(game)) infoCache.set(game, fetchData(`${game}/iteminfo.json`, { swr: true }).catch(() => ({})));
   return infoCache.get(game);
 }
 
@@ -683,7 +728,7 @@ const extCache = new Map();
 const RECIPE_FILES = { classic: 'static/mop-classic-recipes.json' };
 
 function fetchStatic(file) {
-  return file ? fetch(file, { cache: 'no-cache' }).then(r => (r.ok ? r.json() : null)).catch(() => null) : Promise.resolve(null);
+  return file ? getJsonFast(new URL(file, location.href).href, { swr: true, revalidate: false }).catch(() => null) : Promise.resolve(null);
 }
 
 function mergeRecipes(ext, wago) {
@@ -751,7 +796,7 @@ const tipCache = new Map();
 const QUALITY_COLOR = { POOR: '#9d9d9d', COMMON: '#ffffff', UNCOMMON: '#1eff00', RARE: '#0070dd', EPIC: '#a335ee', LEGENDARY: '#ff8000', ARTIFACT: '#e6cc80', HEIRLOOM: '#00ccff' };
 
 function ensureTips(game) {
-  if (!tipCache.has(game)) tipCache.set(game, fetchData(`${game}/tooltips.json.gz`).catch(() => null));
+  if (!tipCache.has(game)) tipCache.set(game, fetchData(`${game}/tooltips.json.gz`, { swr: true }).catch(() => null));
   return tipCache.get(game);
 }
 
@@ -853,7 +898,7 @@ function fillRealms() {
 
 async function init() {
   try {
-    const manifest = await fetchData('games.json');
+    const manifest = await fetchData('games.json', { swr: true });
     state.games = manifest.games || [];
   } catch (err) {
     setStatus(`Could not load data from ${BASE} (${err.message}). Run the collector workflow first, or add ?data=URL to point at a data folder.`, true);
@@ -882,7 +927,7 @@ async function onRegion(restore) {
   const seq = ++state.seq;
   setStatus('Loading servers');
   try {
-    if (!realmCache.has(key)) realmCache.set(key, (await fetchData(`${key}/realms.json`)).realms);
+    if (!realmCache.has(key)) realmCache.set(key, (await fetchData(`${key}/realms.json`, { swr: true })).realms);
   } catch (err) {
     if (seq === state.seq) setStatus(`Could not load servers: ${err.message}`, true);
     return;
@@ -899,35 +944,65 @@ async function onRegion(restore) {
 
 async function loadRealm() {
   const seq = ++state.seq;
-  const key = `${state.game}/${state.region}/${state.realmId}`;
+  const game = state.game;
+  const key = `${game}/${state.region}/${state.realmId}`;
   store.set('ah.realm', String(state.realmId));
   setStatus('Loading auctions');
   $('rows').innerHTML = '';
-  try {
-    const namesPromise = nameCache.has(state.game)
-      ? Promise.resolve(nameCache.get(state.game))
-      : fetchData(`${state.game}/items.json`).catch(() => ({}));
-    const iconsPromise = iconCache.has(state.game)
-      ? Promise.resolve(iconCache.get(state.game))
-      : fetchData(`${state.game}/icons.json`).catch(() => ({}));
-    const [snap, names, icons, ext, tips, info] = await Promise.all([fetchData(`${key}/latest.json.gz`), namesPromise, iconsPromise, ensureExt(state.game), ensureTips(state.game), ensureInfo(state.game)]);
-    if (seq !== state.seq) return;
-    state.info = info || {};
-    state.ext = ext;
-    state.tips = tips;
+  if (state.metaGame !== game) {
+    state.metaGame = game;
+    state.icons = {};
+    state.tips = null;
+    state.info = {};
+    state.ext = null;
+    state.catalog = null;
+    state.names = {};
     tipStatCache.clear();
-    state.catalog = $('showAll').checked || state.catalog ? await ensureCatalog(state.game) : null;
-    if (seq !== state.seq) return;
-    nameCache.set(state.game, names);
-    iconCache.set(state.game, icons);
+  }
+  const apply = (snap, names) => {
     state.snap = snap;
-    state.names = names;
-    state.icons = icons;
+    if (names) state.names = names;
     state.historyPromise = null;
     state.page = 0;
     refresh();
+  };
+  const later = (promise, fn) => promise.then(v => {
+    if (seq !== state.seq) return;
+    fn(v);
+    refresh();
+  }).catch(() => {});
+  const snapUrl = BASE + `${key}/latest.json.gz`;
+  const namesPromise = nameCache.has(game) ? Promise.resolve(nameCache.get(game)) : fetchData(`${game}/items.json`, { swr: true }).catch(() => ({}));
+  const cachedSnap = await cachedJson(snapUrl);
+  if (seq !== state.seq) return;
+  if (cachedSnap) {
+    const names = await namesPromise;
+    if (seq !== state.seq) return;
+    nameCache.set(game, names);
+    apply(cachedSnap, names);
+  }
+  later(iconCache.has(game) ? Promise.resolve(iconCache.get(game)) : fetchData(`${game}/icons.json`, { swr: true }), v => {
+    iconCache.set(game, v || {});
+    state.icons = v || {};
+  });
+  later(ensureTips(game), v => {
+    state.tips = v;
+    tipStatCache.clear();
+  });
+  later(ensureInfo(game), v => { state.info = v || {}; });
+  later(ensureExt(game), v => { state.ext = v; });
+  if ($('showAll').checked) later(ensureCatalog(game), v => { state.catalog = v; });
+  try {
+    const [snap, names] = await Promise.all([netJson(snapUrl, true), namesPromise]);
+    if (seq !== state.seq) return;
+    nameCache.set(game, names);
+    if (!cachedSnap || snap.u !== cachedSnap.u) apply(snap, names);
   } catch (err) {
     if (seq !== state.seq) return;
+    if (cachedSnap) {
+      setStatus(`Showing saved data from ${ago(cachedSnap.u)}. Could not refresh: ${err.message}`, true);
+      return;
+    }
     state.snap = null;
     $('empty').hidden = false;
     $('empty').textContent = 'No data for this server yet.';

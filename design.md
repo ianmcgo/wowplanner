@@ -29,6 +29,11 @@ To test with a different data location, add `?data=<url>` to the page address. T
 
 To run the first collection on a smaller scope, use the workflow inputs, for example games `retail` and regions `us`.
 
+## Loading speed
+- The listings render as soon as the server snapshot and item names arrive. Icons, tooltips, item stats, recipes and the item catalog load in the background and the page redraws as each one lands.
+- Every file is saved in the browser's Cache Storage (`ah-data-v1`). On the next visit the last snapshot shows immediately and the fresh one replaces it when it arrives. Large static files (sources, recipes, locations, catalog) and the item names, icons, tooltips and stats are served from that cache first and refreshed in the background for next time. If the network fails, the saved copy is shown with a note.
+- The page never waits for the collector; it always shows the newest snapshot that exists.
+
 ## How the page finds data
 On `*.github.io/<repo>/` it reads `https://raw.githubusercontent.com/<user>/<repo>/data/`. Anywhere else it reads a relative `data/` folder. The `?data=` parameter overrides both.
 
