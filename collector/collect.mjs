@@ -50,6 +50,8 @@ const GAMES = {
     dynamicFallback: ['dynamic-classicforever-{r}', 'dynamic-classicplus-{r}', 'dynamic-classic2x-{r}', 'dynamic-wowforever-{r}'],
     static: env.FOREVER_STATIC || 'static-forever-{r}',
     staticFallback: ['static-classicforever-{r}', 'static-classicplus-{r}', 'static-classic2x-{r}', 'static-wowforever-{r}', 'static-classic1x-{r}'],
+    versioned: 'forever',
+    knownStatic: ['static-1.60.1_70399-forever-{r}'],
     commodities: true,
     houses: true,
     journal: false
@@ -467,8 +469,33 @@ async function saveMeta(game, meta) {
   await writeJson(path.join(dir, 'meta.json'), { catsVersion: CATS_VERSION, tipsVersion: TIPS_VERSION, infoVersion: INFO_VERSION, staticNs: meta.staticNs });
 }
 
+async function versionedStatic(game, region) {
+  if (!game.versioned) return [];
+  const out = [];
+  try {
+    const sum = JSON.parse(await readFile(path.join(OUT_DIR, game.id, 'api', 'summary.json'), 'utf8'));
+    if (sum.staticNs && sum.staticNs.endsWith(`-${region}`)) out.push(sum.staticNs);
+  } catch {}
+  for (const v of (env.FOREVER_STATIC_VERSIONS || '').split(',').filter(Boolean)) out.push(`static-${v}-${game.versioned}-${region}`);
+  try {
+    const res = await fetch(`${env.WAGO_BASE || 'https://wago.tools'}/api/builds`, { headers: { 'User-Agent': 'wowplanner-collector (github.com/ianmcgo/wowplanner)' } });
+    if (res.ok) {
+      const builds = await res.json();
+      for (const [product, list] of Object.entries(builds)) {
+        if (!new RegExp(game.versioned, 'i').test(product) || !Array.isArray(list)) continue;
+        for (const b of list.slice(0, 4)) {
+          const m = /^(\d+\.\d+\.\d+)\.(\d+)$/.exec(String(b.version || b));
+          if (m) out.push(`static-${m[1]}_${m[2]}-${game.versioned}-${region}`);
+        }
+      }
+    }
+  } catch {}
+  out.push(...(game.knownStatic || []).map(s => s.replace('{r}', region)));
+  return [...new Set(out)];
+}
+
 async function probeStatic(game, region, base, meta) {
-  const candidates = [game.static, ...(game.staticFallback || [])].map(s => s.replace('{r}', region));
+  const candidates = [...new Set([...(await versionedStatic(game, region)), ...[game.static, ...(game.staticFallback || [])].map(s => s.replace('{r}', region))])];
   const probes = [];
   let chosen = null;
   for (const ns of candidates) {

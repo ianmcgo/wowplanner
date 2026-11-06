@@ -1,0 +1,62 @@
+name: Scan Forever API
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/scan-forever.yml
+      - collector/scan-forever.mjs
+  schedule:
+    - cron: '41 9 * * *'
+  workflow_dispatch:
+    inputs:
+      static_versions:
+        description: Extra Forever static versions to try, comma separated (like 1.60.1_70399)
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+concurrency:
+  group: collect-auction-data
+  cancel-in-progress: false
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Restore previous data branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: git clone --quiet --depth=1 --branch data "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" data-out || mkdir -p data-out
+
+      - name: Scan
+        continue-on-error: true
+        env:
+          BLIZZARD_CLIENT_ID: ${{ secrets.BLIZZARD_CLIENT_ID }}
+          BLIZZARD_CLIENT_SECRET: ${{ secrets.BLIZZARD_CLIENT_SECRET }}
+          OUT_DIR: data-out
+          FOREVER_STATIC_VERSIONS: ${{ github.event.inputs.static_versions || '1.60.1_70399' }}
+        run: node collector/scan-forever.mjs
+
+      - name: Publish data branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cd data-out
+          rm -rf .git
+          git init --quiet -b data
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit --quiet -m "Forever API scan $(date -u +%Y-%m-%dT%H:%MZ)"
+          git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git"
+          git push --force origin data
