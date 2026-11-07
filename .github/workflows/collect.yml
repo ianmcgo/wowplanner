@@ -18,6 +18,10 @@ on:
         description: Comma separated regions (us,eu,kr,tw)
         required: false
         default: us
+      keep_others:
+        description: Keep games not in the list (1) instead of removing them (0)
+        required: false
+        default: '0'
 
 permissions:
   contents: write
@@ -43,8 +47,15 @@ jobs:
         run: |
           git clone --quiet --depth=1 --branch data "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" data-out || mkdir -p data-out
 
+      - name: Get uploaded in-game scans
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: git clone --quiet --depth=1 --branch scans "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" scans-in || mkdir -p scans-in
+
       - name: Collect
         env:
+          SCANS_DIR: scans-in
+          KEEP_OTHER_GAMES: ${{ github.event.inputs.keep_others || '0' }}
           BLIZZARD_CLIENT_ID: ${{ secrets.BLIZZARD_CLIENT_ID }}
           BLIZZARD_CLIENT_SECRET: ${{ secrets.BLIZZARD_CLIENT_SECRET }}
           OUT_DIR: data-out

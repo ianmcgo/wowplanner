@@ -1,0 +1,8 @@
+## Interface: 16001, 11507
+## Title: WoWPlanner Scan
+## Notes: Scans the auction house every 10 minutes while it is open and saves it for the WoWPlanner uploader.
+## Author: Ian McGonigal
+## Version: 1.0.0
+## SavedVariables: WoWPlannerScanDB
+
+WoWPlannerScan.lua

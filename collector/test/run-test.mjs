@@ -15,6 +15,13 @@ rmSync(out, { recursive: true, force: true });
 mkdirSync(out, { recursive: true });
 const catalogFile = path.join(here, 'catalog.json');
 writeFileSync(catalogFile, JSON.stringify({ items: { 500: ['Quest Thing', 1, 1, 0, 12, 0, 0, -1, 4, 0], 501: ['Old Sword', 2, 10, 5, 2, 7, 13, -1, 2, 100] } }));
+const scansDir = path.join(here, 'out-scans');
+rmSync(scansDir, { recursive: true, force: true });
+mkdirSync(path.join(scansDir, 'forever', 'us'), { recursive: true });
+const scanT = Math.floor(Date.now() / 1000) - 60;
+writeFileSync(path.join(scansDir, 'forever', 'us', 'thunderfury-alliance.txt'), `v1#${scanT}#us#Thunderfury#Alliance#3#2589,20,4000,3000,4,111;2589,5,1500,0,3,222;2589,5,1500,0,3,222`);
+writeFileSync(path.join(scansDir, 'forever', 'us', 'thunderfury-horde.txt'), `v1#${scanT}#us#Thunderfury#Horde#1#2592,1,900,0,2,333`);
+writeFileSync(path.join(scansDir, 'forever', 'us', 'old-alliance.txt'), `v1#${scanT - 10 * 86400}#us#Old Realm#Alliance#1#2589,1,100,0,4,1`);
 const server = await startMock(port);
 
 function exec(env) {
@@ -40,6 +47,7 @@ async function run(extra = {}) {
     CONCURRENCY: '4',
     SALES_MIN_GAP: '0',
     CATALOG_FILE: catalogFile,
+    SCANS_DIR: scansDir,
     ...extra
   });
   if (res.status !== 0) {
@@ -55,6 +63,17 @@ try {
   await run();
   const games =JSON.parse(readFileSync(path.join(out, 'games.json'), 'utf8'));
   assert.deepEqual(games.games.map(g => g.id).sort(), ['classic', 'classic1x', 'forever', 'retail']);
+  const frealms = JSON.parse(readFileSync(path.join(out, 'forever', 'us', 'realms.json'), 'utf8')).realms;
+  const scanned = frealms.find(r => r.id === 's-thunderfury');
+  assert.ok(scanned, 'scanned realm listed');
+  assert.ok(!frealms.find(r => r.id === 's-old-realm'), 'stale scan skipped');
+  const sl = JSON.parse(gunzipSync(readFileSync(path.join(out, 'forever', 'us', 's-thunderfury', 'latest.json.gz'))));
+  const linen = sl.items.find(e => e.i === 2589);
+  assert.equal(linen.q, 30);
+  assert.equal(linen.n, 3);
+  assert.equal(linen.m, 200);
+  assert.ok(linen.l.some(l => l[3] === 'alliance'));
+  assert.ok(sl.items.find(e => e.i === 2592).l[0][3] === 'horde');
   const fdiag = JSON.parse(readFileSync(path.join(out, 'diagnostics.json'), 'utf8'));
   assert.equal(fdiag.games.forever.dynamicNs, 'dynamic-classicplus-us', 'forever found its namespace');
   assert.equal(fdiag.games.forever.dynamicProbes.filter(p => !p.realms).length, 2);
@@ -177,6 +196,7 @@ try {
   assert.notEqual(bad.status, 0);
 
   rmSync(catalogFile, { force: true });
+  rmSync(scansDir, { recursive: true, force: true });
   console.log('ALL CHECKS PASSED');
 } finally {
   server.close();

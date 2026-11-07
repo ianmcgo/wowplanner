@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile, rm } from 'node:fs/promises';
+import { mkdir, readFile, readdir, writeFile, rm } from 'node:fs/promises';
 import { gzipSync, gunzipSync } from 'node:zlib';
 import path from 'node:path';
 
@@ -51,6 +51,7 @@ const GAMES = {
     static: env.FOREVER_STATIC || 'static-forever-{r}',
     staticFallback: ['static-classicforever-{r}', 'static-classicplus-{r}', 'static-classic2x-{r}', 'static-wowforever-{r}', 'static-classic1x-{r}'],
     versioned: 'forever',
+    scans: true,
     knownStatic: ['static-1.60.1_70399-forever-{r}'],
     commodities: true,
     houses: true,
@@ -826,14 +827,91 @@ async function findDynamic(game, region, base) {
   return { ns: candidates[0], index: null };
 }
 
+const SCANS_DIR = env.SCANS_DIR || 'scans-in';
+const SCAN_MAX_AGE_HOURS = Number(env.SCAN_MAX_AGE_HOURS || 72);
+const SCAN_TIME = { 1: 'SHORT', 2: 'MEDIUM', 3: 'LONG', 4: 'VERY_LONG' };
+
+function scanHash(str) {
+  let h = 5381;
+  for (let i = 0; i < str.length; i++) h = (h * 33 + str.charCodeAt(i)) % 2147483647;
+  return h;
+}
+
+function parseScan(text) {
+  const parts = text.trim().split('#');
+  if (parts.length < 7 || parts[0] !== 'v1') return null;
+  const [, t, region, realm, faction] = parts;
+  const data = parts.slice(6).join('#');
+  const house = faction.toLowerCase();
+  const counts = new Map();
+  const auctions = [];
+  for (const row of data.split(';')) {
+    if (!row) continue;
+    const [item, qty, buyout, bid, tl, owner] = row.split(',').map(Number);
+    if (!item) continue;
+    const base = `${item},${qty},${buyout},${owner}`;
+    const k = (counts.get(base) || 0) + 1;
+    counts.set(base, k);
+    auctions.push({ id: scanHash(`${base},${k}`) + 1, item: { id: item }, quantity: qty || 1, buyout: buyout > 0 ? buyout : undefined, bid: bid || undefined, time_left: SCAN_TIME[tl] || '', house });
+  }
+  return { t: Number(t), region, realm, faction: house, auctions };
+}
+
+async function loadScans(game, region, now) {
+  const dir = path.join(SCANS_DIR, game.id, region);
+  let files = [];
+  try {
+    files = (await readdir(dir)).filter(f => f.endsWith('.txt'));
+  } catch {
+    return [];
+  }
+  const byRealm = new Map();
+  for (const f of files) {
+    let scan = null;
+    try {
+      scan = parseScan(await readFile(path.join(dir, f), 'utf8'));
+    } catch (err) {
+      log(game.id, region, 'bad scan file', f, err.message);
+    }
+    if (!scan || !scan.auctions.length) continue;
+    if ((now - scan.t) / 3600 > SCAN_MAX_AGE_HOURS) continue;
+    const slug = scan.realm.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    if (!byRealm.has(slug)) byRealm.set(slug, { slug, realm: scan.realm, scans: [] });
+    byRealm.get(slug).scans.push(scan);
+  }
+  const d = diagnostics[game.id] || (diagnostics[game.id] = {});
+  d.scans = [...byRealm.values()].map(r => ({ realm: r.realm, scans: r.scans.map(s => ({ faction: s.faction, t: new Date(s.t * 1000).toISOString(), listings: s.auctions.length })) }));
+  return [...byRealm.values()];
+}
+
+async function storeScans(game, region, now, seen) {
+  const out = [];
+  for (const r of await loadScans(game, region, now)) {
+    const entry = { id: `s-${r.slug}`, names: [r.realm], scanned: true };
+    const t = Math.max(...r.scans.map(s => s.t));
+    const dir = path.join(OUT_DIR, game.id, region, entry.id);
+    const prev = await readGz(path.join(dir, 'latest.json.gz'));
+    if (prev && Array.isArray(prev.items) && Date.parse(prev.u) / 1000 >= t) {
+      for (const e of prev.items) seen.set(e.i, (seen.get(e.i) || 0) + e.n);
+      out.push(entry);
+      continue;
+    }
+    const auctions = r.scans.flatMap(s => s.auctions);
+    const count = await storeSnapshot(game, region, entry, auctions, seen, t);
+    if (count > 0) out.push(entry);
+    log(game.id, region, 'stored scan', r.realm, auctions.length, 'listings');
+  }
+  return out;
+}
+
 async function collectRegion(game, region, now, meta) {
   const base = apiBase(region);
   const { ns, index } = await findDynamic(game, region, base);
-  if (!index || !Array.isArray(index.connected_realms)) {
+  if ((!index || !Array.isArray(index.connected_realms)) && !game.scans) {
     log(game.id, region, 'no connected realm index, skipping');
     return false;
   }
-  let ids = index.connected_realms
+  let ids = ((index && index.connected_realms) || [])
     .map(r => Number((/connected-realm\/(\d+)/.exec(r.href) || [])[1]))
     .filter(Boolean);
   if (MAX_REALMS > 0) ids = ids.slice(0, MAX_REALMS);
@@ -868,6 +946,12 @@ async function collectRegion(game, region, now, meta) {
     } catch (err) {
       log(game.id, region, 'commodities failed', err.message);
     }
+  }
+
+  if (game.scans) {
+    const scanned = await storeScans(game, region, now, seen);
+    const have = new Set(realms.map(r => r.names[0].toLowerCase()));
+    for (const e of scanned) if (!have.has(e.names[0].toLowerCase())) realms.push(e);
   }
 
   if (!realms.length) return false;
@@ -929,7 +1013,7 @@ async function main() {
   }
 
   for (const id of [...table.keys()]) {
-    if (!GAME_IDS.includes(id)) {
+    if (env.KEEP_OTHER_GAMES !== '1' && !GAME_IDS.includes(id)) {
       table.delete(id);
       await rm(path.join(OUT_DIR, id), { recursive: true, force: true });
     }
